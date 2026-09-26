@@ -1,0 +1,3640 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Майнура</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,500;0,9..144,600;0,9..144,900;1,9..144,400;1,9..144,600&family=Inter:wght@400;500;600&display=swap');
+
+  :root{
+    --wine-1: #2b1015;
+    --wine-2: #150a0c;
+    --ivory: #f4e9dc;
+    --ivory-dim: rgba(244,233,220,.66);
+    --red: #c81d38;
+    --red-soft: #e2536b;
+    --gold: #b8935a;
+  }
+
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -5%, rgba(200,29,56,.16), transparent 60%),
+      linear-gradient(180deg, var(--wine-1), var(--wine-2) 70%);
+    color: var(--ivory);
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /* slow ambient glow drifting behind everything */
+  .ambient-glow{
+    position: fixed;
+    inset: -20%;
+    z-index: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(600px 600px at 20% 30%, rgba(200,29,56,.10), transparent 60%),
+      radial-gradient(500px 500px at 80% 70%, rgba(184,147,90,.08), transparent 60%);
+    animation: drift 22s ease-in-out infinite alternate;
+    filter: blur(20px);
+  }
+
+  @keyframes drift{
+    0%{ transform: translate(-3%, -2%) scale(1); }
+    50%{ transform: translate(3%, 4%) scale(1.08); }
+    100%{ transform: translate(-2%, 3%) scale(1.02); }
+  }
+
+  /* scroll progress bar */
+  .scroll-progress{
+    position: fixed;
+    top: 0; left: 0;
+    height: 3px;
+    width: 0%;
+    background: linear-gradient(90deg, var(--gold), var(--red), var(--red-soft));
+    z-index: 50;
+    box-shadow: 0 0 12px rgba(200,29,56,.6);
+    transition: width .1s linear;
+  }
+
+  /* z-index -1: sits behind the animated ambient-glow so the blend mode only
+     ever composites against the static body background, not against something
+     animating every frame — that pairing was forcing a full-viewport repaint
+     on every single frame, which is a big part of why the page used to jank. */
+  body::before{
+    content:"";
+    position: fixed;
+    inset:0;
+    pointer-events:none;
+    z-index: -1;
+    opacity:.05;
+    mix-blend-mode: overlay;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  a{ color: inherit; }
+
+  ::selection{ background: var(--red); color: var(--ivory); }
+
+  :focus-visible{
+    outline: 2px solid var(--red-soft);
+    outline-offset: 4px;
+  }
+
+  .container{
+    position: relative;
+    max-width: 620px;
+    margin: 0 auto;
+    padding: 0 28px;
+    z-index: 2;
+  }
+
+  /* A single thread quietly connects the whole story. */
+  .container::before{
+    content:"";
+    position:absolute;
+    top:64px;
+    bottom:86px;
+    left:-12px;
+    width:2px;
+    border-radius:999px;
+    background:linear-gradient(180deg, transparent, rgba(226,83,107,.7) 8%, var(--red) 47%, rgba(184,147,90,.78) 91%, transparent);
+    box-shadow:0 0 18px rgba(200,29,56,.34);
+    opacity:.8;
+  }
+
+  .container::after{
+    content:"";
+    position:absolute;
+    left:-18px;
+    top:37%;
+    width:13px;
+    height:13px;
+    border:2px solid var(--red-soft);
+    border-radius:50%;
+    background:var(--wine-2);
+    box-shadow:0 0 0 5px rgba(200,29,56,.1), 0 0 20px rgba(200,29,56,.46);
+  }
+
+  /* ---------- HERO ---------- */
+
+  .hero{
+    min-height: 92vh;
+    display:flex;
+    flex-direction: column;
+    justify-content:center;
+    align-items:center;
+    text-align:center;
+    padding: 40px 28px;
+    position: relative;
+  }
+
+  .hero-kicker{
+    font-family:'Fraunces', serif;
+    font-style: italic;
+    font-weight: 400;
+    font-size: 17px;
+    color: var(--ivory-dim);
+    margin: 0 0 18px;
+    letter-spacing: .01em;
+    opacity: 0;
+    animation: fade-up .9s ease forwards .15s;
+  }
+
+  @keyframes fade-up{
+    from{ opacity: 0; transform: translateY(14px); }
+    to{ opacity: 1; transform: translateY(0); }
+  }
+
+  .hero-title-reveal{
+    display: inline-block;
+    position: relative;
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+    animation: title-reveal 1.5s cubic-bezier(.19,1,.22,1) forwards .3s;
+  }
+
+  .hero-title-reveal::after{
+    content:"";
+    position: absolute;
+    inset: -6% -4%;
+    pointer-events: none;
+    background: linear-gradient(100deg, transparent 42%, rgba(244,233,220,.65) 50%, transparent 58%);
+    background-size: 250% 100%;
+    background-position: -120% 0;
+    mix-blend-mode: overlay;
+    opacity: 0;
+    animation: title-shine 1.3s ease-out 1.55s 1;
+  }
+
+  .hero h1{
+    font-family:'Fraunces', serif;
+    font-optical-sizing: auto;
+    font-weight: 600;
+    font-style: italic;
+    font-size: clamp(58px, 14vw, 118px);
+    line-height: .95;
+    margin: 0;
+    color: var(--ivory);
+    position: relative;
+    display: inline-block;
+    transition: transform .25s ease-out;
+    will-change: transform;
+  }
+
+  @keyframes title-reveal{
+    0%{
+      opacity: 0;
+      filter: blur(18px);
+      transform: translateY(34px) scale(.94);
+      clip-path: inset(0 100% 0 0);
+      letter-spacing: .12em;
+    }
+    45%{
+      opacity: 1;
+      filter: blur(4px);
+    }
+    100%{
+      opacity: 1;
+      filter: blur(0);
+      transform: translateY(0) scale(1);
+      clip-path: inset(0 0 0 0);
+      letter-spacing: 0em;
+    }
+  }
+
+  @keyframes title-shine{
+    0%{ opacity: 0; background-position: -120% 0; }
+    15%{ opacity: .9; }
+    60%{ opacity: .5; }
+    100%{ opacity: 0; background-position: 160% 0; }
+  }
+
+  .hero h1 span{
+    background: linear-gradient(100deg, var(--red-soft), var(--red) 60%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: glow-shift 6s ease-in-out infinite 1.8s;
+  }
+
+  @keyframes glow-shift{
+    0%, 100%{ filter: drop-shadow(0 0 0 rgba(200,29,56,0)); }
+    50%{ filter: drop-shadow(0 0 18px rgba(200,29,56,.35)); }
+  }
+
+  .hero p{
+    max-width: 46ch;
+    margin: 26px 0 0;
+    font-size: 17px;
+    line-height: 1.65;
+    color: var(--ivory-dim);
+    opacity: 0;
+    animation: fade-up 1s ease forwards .6s;
+  }
+
+  .hero-scroll{
+    margin-top: 56px;
+    width: 1px;
+    height: 46px;
+    background: linear-gradient(var(--red), transparent);
+    animation: pulse-line 2.4s ease-in-out infinite .9s;
+    opacity: .3;
+  }
+
+  @keyframes pulse-line{
+    0%,100%{ opacity:.3; }
+    50%{ opacity: 1; }
+  }
+
+  /* ---------- STORY / THREAD ---------- */
+
+  .story{
+    position: relative;
+    padding: 40px 0 70px;
+  }
+
+  .story::before,
+  .gallery-section::before,
+  .quest-section::before,
+  .finale::before{
+    content:"";
+    position:absolute;
+    left:-39px;
+    top:48px;
+    width:11px;
+    height:11px;
+    border-radius:50%;
+    background:var(--gold);
+    box-shadow:0 0 0 5px rgba(184,147,90,.1), 0 0 16px rgba(184,147,90,.4);
+  }
+
+  .story-hint{
+    font-size: 14.5px;
+    color: var(--ivory-dim);
+    opacity: .75;
+    margin: 0 0 26px;
+    max-width: 46ch;
+  }
+
+  /* ---------- STORY TABS ---------- */
+
+  .story-tabs{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 44px;
+  }
+
+  .tab-btn{
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    letter-spacing: .01em;
+    color: var(--ivory-dim);
+    background: rgba(244,233,220,.03);
+    border: 1px solid rgba(244,233,220,.16);
+    border-radius: 999px;
+    padding: 11px 20px;
+    cursor: pointer;
+    transition: border-color .3s ease, color .3s ease, background .3s ease, box-shadow .3s ease, transform .2s ease;
+  }
+
+  .tab-btn:hover{
+    border-color: rgba(200,29,56,.5);
+    color: var(--ivory);
+    transform: translateY(-1px);
+  }
+
+  .tab-btn.active{
+    color: var(--ivory);
+    border-color: var(--red);
+    background: linear-gradient(120deg, rgba(200,29,56,.22), rgba(184,147,90,.14));
+    box-shadow: 0 0 26px -8px rgba(200,29,56,.7);
+  }
+
+  .tab-btn.kiss-tab::after{
+    content: " ♥";
+    opacity: .75;
+  }
+
+  .tab-btn.forever-tab::after{
+    content: " ∞";
+    opacity: .75;
+  }
+
+  .beat.forever-beat .beat-label{
+    color: var(--gold);
+  }
+
+  .beat.forever-beat .sign{
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    color: var(--red-soft);
+    font-size: 18px;
+  }
+
+  /* ---------- STORY PANELS ---------- */
+
+  .story-panels{
+    position: relative;
+    min-height: 140px;
+  }
+
+  .story-empty{
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    color: var(--ivory-dim);
+    opacity: .55;
+    font-size: 16px;
+    padding: 10px 0 40px;
+    transition: opacity .4s ease;
+  }
+
+  .story-empty.hidden{
+    display: none;
+  }
+
+  .tab-panel{
+    display: none;
+  }
+
+  .tab-panel.active{
+    display: block;
+    animation: panel-in .7s cubic-bezier(.22,.68,.1,1);
+  }
+
+  @keyframes panel-in{
+    from{ opacity: 0; transform: translateY(16px); }
+    to{ opacity: 1; transform: translateY(0); }
+  }
+
+  .beat{
+    position: relative;
+    margin: 0 0 108px;
+    z-index: 1;
+  }
+
+  .beat:last-of-type{ margin-bottom: 40px; }
+
+  .tab-panel.beat{
+    margin: 0;
+  }
+
+  .beat h2{
+    font-family:'Fraunces', serif;
+    font-weight: 500;
+    font-size: clamp(28px, 5vw, 38px);
+    line-height: 1.15;
+    margin: 0 0 4px;
+    display:inline-block;
+    position: relative;
+    transition: transform .35s ease, color .35s ease;
+  }
+
+  .beat h2:hover{
+    transform: translateX(6px);
+    color: var(--red-soft);
+  }
+
+  .beat h2::after{
+    content:"";
+    display:block;
+    height: 2px;
+    width: 0;
+    background: var(--red);
+    margin-top: 10px;
+    transition: width 1s cubic-bezier(.22,.68,.1,1);
+  }
+
+  .beat.in-view h2::after{
+    width: 64px;
+  }
+
+  .beat h2:hover::after{
+    width: 100%;
+  }
+
+  .beat p{
+    max-width: 56ch;
+    font-size: 17px;
+    line-height: 1.75;
+    color: var(--ivory-dim);
+    margin: 20px 0 0;
+    opacity: 0;
+    transform: translateY(18px);
+    transition: opacity .9s ease, transform .9s cubic-bezier(.22,.68,.1,1);
+    transition-delay: .1s;
+  }
+
+  .beat.in-view p{
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .beat-label{
+    font-family:'Fraunces', serif;
+    font-style: italic;
+    font-size: 15px;
+    color: var(--gold);
+    margin: 0 0 10px;
+    opacity: 0;
+    transform: translateX(-10px);
+    transition: opacity .6s ease, transform .6s ease;
+  }
+
+  .beat.in-view .beat-label{
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  /* ---------- NUMBER MOMENT ---------- */
+
+  .big-number{
+    font-family:'Fraunces', serif;
+    font-weight: 900;
+    font-size: clamp(96px, 26vw, 190px);
+    line-height: .85;
+    margin: 6px 0 0;
+    background: linear-gradient(120deg, var(--red-soft), var(--red) 55%, var(--gold));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    display: inline-block;
+    animation: number-breathe 4s ease-in-out infinite;
+  }
+
+  @keyframes number-breathe{
+    0%, 100%{ transform: scale(1); }
+    50%{ transform: scale(1.035); }
+  }
+
+  .big-number-cap{
+    font-family:'Inter';
+    font-size: 14px;
+    color: var(--ivory-dim);
+    margin: 0;
+  }
+
+  /* ---------- ENVELOPE ---------- */
+
+  .finale{
+    position:relative;
+    isolation:isolate;
+    text-align:center;
+    padding: 20px 0 60px;
+  }
+
+  .finale::after{
+    content:"";
+    position:absolute;
+    z-index:-1;
+    inset:-18px -44px 0;
+    border-radius:28px;
+    background:radial-gradient(ellipse at center, rgba(200,29,56,.13), transparent 64%);
+  }
+
+  .finale-intro{
+    max-width: 42ch;
+    margin: 0 auto 42px;
+    color: var(--ivory-dim);
+    font-size: 17px;
+    line-height: 1.7;
+  }
+
+  .envelope{
+    width: min(340px, 86%);
+    margin: 0 auto;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+  }
+
+  .envelope-flap{
+    height: 0;
+    width: 100%;
+    border-left: 170px solid transparent;
+    border-right: 170px solid transparent;
+    border-top: 92px solid var(--gold);
+    transform-origin: top center;
+    transition: transform .7s cubic-bezier(.4,0,.2,1);
+    position: relative;
+    z-index: 2;
+  }
+
+  .envelope.open .envelope-flap{
+    transform: rotateX(180deg);
+    border-top-color: #8a6a3f;
+  }
+
+  .envelope-face{
+    position: relative;
+    background: linear-gradient(160deg, var(--red), #8f1526);
+    height: 130px;
+    margin-top: -2px;
+    border-radius: 0 0 6px 6px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow: 0 24px 50px -20px rgba(0,0,0,.6);
+  }
+
+  /* invite ring: transform + opacity only (GPU-composited), replaces a box-shadow
+     pulse that had to be fully repainted on every frame, forever */
+  .envelope-face::before{
+    content:"";
+    position:absolute;
+    inset:-4px;
+    border-radius:inherit;
+    border: 2px solid rgba(200,29,56,.55);
+    opacity: .6;
+    animation: invite-ring 2.8s ease-out infinite;
+    pointer-events:none;
+  }
+
+  .envelope.open .envelope-face::before{
+    animation: none;
+    opacity: 0;
+  }
+
+  @keyframes invite-ring{
+    0%{ transform: scale(1); opacity: .55; }
+    100%{ transform: scale(1.16); opacity: 0; }
+  }
+
+  .spark{
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--red-soft);
+    box-shadow: 0 0 8px 2px rgba(226,83,107,.7);
+    pointer-events: none;
+    animation: spark-fly .9s ease-out forwards;
+  }
+
+  @keyframes spark-fly{
+    0%{ transform: translate(-50%,-50%) scale(1); opacity: 1; }
+    100%{ transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(0); opacity: 0; }
+  }
+
+  .envelope-label{
+    font-family:'Fraunces', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ivory);
+    opacity: .9;
+    transition: opacity .3s ease;
+  }
+
+  .envelope.open .envelope-label{ opacity: 0; }
+
+  /* padding is now fixed (not animated) — overflow:hidden + max-height:0 already
+     hides it completely while closed, so animating padding alongside max-height
+     was pure extra layout work on every frame of the open transition for no
+     visible benefit. Removing it is a big part of the fix for the stutter. */
+  .letter{
+    position: relative;
+    background: linear-gradient(175deg, #faf2e6, var(--ivory) 45%);
+    color: #2a1a1c;
+    text-align: left;
+    border-radius: 16px;
+    margin: 0 6px;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transform: translateY(-8px);
+    padding: 32px 30px 30px;
+    box-shadow: 0 24px 56px -28px rgba(0,0,0,.55), inset 0 0 0 1px rgba(200,29,56,.1);
+    transition: max-height .8s cubic-bezier(.22,.68,.1,1), opacity .6s ease .1s, transform .6s ease .1s;
+  }
+
+  .envelope.open .letter{
+    max-height: 680px;
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .letter-seal{
+    display: block;
+    width: 34px;
+    height: 34px;
+    margin: 0 auto 22px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 30%, var(--red-soft), var(--red) 72%);
+    box-shadow: 0 4px 12px rgba(200,29,56,.4), inset 0 0 0 1px rgba(244,233,220,.25);
+  }
+
+  .letter p{
+    font-family:'Fraunces', serif;
+    font-size: 16.5px;
+    line-height: 1.8;
+    letter-spacing: .005em;
+    margin: 0 0 16px;
+    color: rgba(42,26,28,.92);
+  }
+
+  .letter p:last-of-type{ margin-bottom: 0; }
+
+  .letter p:first-of-type::first-letter{
+    font-size: 1.55em;
+    font-style: italic;
+    color: var(--red);
+  }
+
+  .letter .sign{
+    display: block;
+    margin-top: 22px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(200,29,56,.18);
+    text-align: right;
+    font-style: italic;
+    font-size: 18px;
+    color: var(--red);
+  }
+
+  footer{
+    text-align:center;
+    padding: 50px 28px 60px;
+    font-size: 13px;
+    color: rgba(244,233,220,.35);
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *{ animation-duration: .001ms !important; transition-duration: .001ms !important; }
+    .embers span, .cursor-glow, .heart-burst span{ display:none !important; }
+  }
+
+  /* ---------- HEART BURST (click anywhere) ---------- */
+
+  .heart-burst{
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    pointer-events: none;
+  }
+
+  .heart-burst span{
+    position: absolute;
+    font-size: 16px;
+    color: var(--red-soft);
+    opacity: 0;
+    animation: heart-fly 1.4s ease-out forwards;
+    text-shadow: 0 0 10px rgba(200,29,56,.5);
+  }
+
+  @keyframes heart-fly{
+    0%{ transform: translate(0,0) scale(.5) rotate(0deg); opacity: 1; }
+    100%{ transform: translate(var(--hx), var(--hy)) scale(1.2) rotate(var(--hr)); opacity: 0; }
+  }
+
+  /* subtle hover glow on beats */
+  .beat{
+    transition: filter .4s ease;
+  }
+  .beat:hover{
+    filter: drop-shadow(0 0 22px rgba(200,29,56,.08));
+  }
+
+  /* number 100 gets a heartbeat kick when it first appears */
+  .beat.in-view .big-number{
+    animation: number-breathe 4s ease-in-out infinite, number-pop .7s cubic-bezier(.34,1.56,.64,1) 1;
+  }
+
+  /* ---------- KISS SECTION ---------- */
+
+  .beat.kiss-beat{
+    position: relative;
+    padding: 34px 34px 30px;
+    border-radius: 18px;
+    border: 1px solid rgba(200,29,56,.22);
+    background:
+      radial-gradient(600px 300px at 15% -10%, rgba(200,29,56,.10), transparent 65%),
+      rgba(43,16,21,.28);
+    box-shadow: 0 20px 50px -30px rgba(0,0,0,.6);
+    overflow: hidden;
+  }
+
+  .beat.kiss-beat::before{
+    content: "♥";
+    position: absolute;
+    top: 18px;
+    right: 24px;
+    font-size: 22px;
+    color: var(--red-soft);
+    opacity: .55;
+    animation: kiss-heart-beat 2.4s ease-in-out infinite;
+  }
+
+  @keyframes kiss-heart-beat{
+    0%, 100%{ transform: scale(1); opacity: .4; }
+    50%{ transform: scale(1.22); opacity: .8; }
+  }
+
+  .beat.kiss-beat .beat-label{
+    color: var(--red-soft);
+  }
+
+  .beat.kiss-beat .sign{
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    color: var(--gold);
+    font-size: 18px;
+  }
+
+  @keyframes number-pop{
+    0%{ transform: scale(.7); opacity: 0; }
+    60%{ transform: scale(1.08); opacity: 1; }
+    100%{ transform: scale(1); }
+  }
+
+  /* ---------- AMBIENT EMBERS ---------- */
+
+  .embers{
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .embers span{
+    position: absolute;
+    bottom: -20px;
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--red-soft);
+    box-shadow: 0 0 8px 2px rgba(200,29,56,.55);
+    opacity: 0;
+    animation: rise linear infinite;
+  }
+
+  .embers span:nth-child(1){ left: 6%;  animation-duration: 16s; animation-delay: 0s;  width:4px; height:4px; }
+  .embers span:nth-child(2){ left: 18%; animation-duration: 21s; animation-delay: 3s;  background: var(--gold); box-shadow:0 0 8px 2px rgba(184,147,90,.5); }
+  .embers span:nth-child(3){ left: 30%; animation-duration: 13s; animation-delay: 6s;  width:3px; height:3px; }
+  .embers span:nth-child(4){ left: 44%; animation-duration: 24s; animation-delay: 1s; }
+  .embers span:nth-child(5){ left: 58%; animation-duration: 17s; animation-delay: 8s;  background: var(--gold); box-shadow:0 0 8px 2px rgba(184,147,90,.5); }
+  .embers span:nth-child(6){ left: 68%; animation-duration: 19s; animation-delay: 4s;  width:3px; height:3px; }
+  .embers span:nth-child(7){ left: 78%; animation-duration: 14s; animation-delay: 10s; }
+  .embers span:nth-child(8){ left: 88%; animation-duration: 22s; animation-delay: 2s;  width:4px; height:4px; }
+  .embers span:nth-child(9){ left: 95%; animation-duration: 18s; animation-delay: 7s;  background: var(--gold); box-shadow:0 0 8px 2px rgba(184,147,90,.5); }
+  .embers span:nth-child(10){ left: 12%; animation-duration: 20s; animation-delay: 12s; width:3px; height:3px; }
+
+  @keyframes rise{
+    0%{   transform: translate(0,0) scale(.6);  opacity: 0; }
+    10%{  opacity: .8; }
+    90%{  opacity: .35; }
+    100%{ transform: translate(24px,-110vh) scale(1.1); opacity: 0; }
+  }
+
+  /* ---------- CURSOR GLOW ---------- */
+
+  .cursor-glow{
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background: radial-gradient(320px 320px at var(--x,50%) var(--y,50%), rgba(200,29,56,.10), transparent 70%);
+    opacity: 0;
+    transition: opacity .6s ease;
+  }
+
+  .cursor-glow.active{ opacity: 1; }
+
+  /* ---------- MUSIC TOGGLE ---------- */
+
+  .music-toggle{
+    position: fixed;
+    top: 22px;
+    right: 22px;
+    z-index: 55;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 10px 16px 10px 13px;
+    border-radius: 999px;
+    border: 1px solid rgba(244,233,220,.18);
+    background: rgba(21,10,12,.55);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: var(--ivory-dim);
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    letter-spacing: .04em;
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(-8px);
+    animation: fade-up .8s ease forwards 1.9s;
+    transition: border-color .3s ease, color .3s ease, background .3s ease, box-shadow .3s ease;
+  }
+
+  .music-toggle:hover{
+    border-color: rgba(200,29,56,.5);
+    color: var(--ivory);
+    box-shadow: 0 0 24px -6px rgba(200,29,56,.45);
+  }
+
+  .music-toggle.playing{
+    border-color: rgba(200,29,56,.6);
+    color: var(--ivory);
+    background: rgba(43,16,21,.65);
+  }
+
+  .music-icon{
+    display: flex;
+    align-items: flex-end;
+    gap: 2.5px;
+    height: 13px;
+  }
+
+  .music-icon .bar{
+    width: 2.5px;
+    height: 40%;
+    border-radius: 2px;
+    background: var(--red-soft);
+    transform-origin: bottom;
+    transition: background .3s ease;
+    animation: none;
+  }
+
+  .music-toggle.playing .music-icon .bar{
+    animation: bar-bounce 1s ease-in-out infinite;
+  }
+
+  .music-icon .bar:nth-child(1){ animation-delay: 0s; }
+  .music-icon .bar:nth-child(2){ animation-delay: .18s; }
+  .music-icon .bar:nth-child(3){ animation-delay: .34s; }
+
+  @keyframes bar-bounce{
+    0%, 100%{ height: 30%; }
+    50%{ height: 100%; }
+  }
+
+  @media (max-width: 560px){
+    .music-toggle{ top: 14px; right: 14px; padding: 9px 14px 9px 12px; }
+    .music-label{ display: none; }
+  }
+
+  /* ---------- VISIT BADGE ---------- */
+
+  .visit-badge{
+    position: fixed;
+    top: 22px;
+    left: 22px;
+    z-index: 55;
+    padding: 10px 16px;
+    border-radius: 999px;
+    border: 1px solid rgba(244,233,220,.18);
+    background: rgba(21,10,12,.55);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    color: var(--ivory-dim);
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    letter-spacing: .02em;
+    opacity: 0;
+    transform: translateY(-8px);
+    pointer-events: none;
+    transition: opacity .6s ease, transform .6s ease;
+  }
+
+  .visit-badge.show{
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  @media (max-width: 560px){
+    .visit-badge{ top: 14px; left: 14px; padding: 8px 12px; font-size: 11px; }
+  }
+
+  /* ---------- QUEST ---------- */
+
+  .quest-section{
+    position:relative;
+    padding: 20px 0 100px;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  .quest-form{
+    display: flex;
+    flex-direction: column;
+    gap: 30px;
+  }
+
+  .quest-question{
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 17px;
+    color: var(--ivory);
+    margin: 0 0 12px;
+  }
+
+  .quest-input{
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(244,233,220,.03);
+    border: 1px solid rgba(244,233,220,.18);
+    border-radius: 10px;
+    padding: 12px 14px;
+    color: var(--ivory);
+    font-family: 'Inter', sans-serif;
+    font-size: 14.5px;
+    outline: none;
+    transition: border-color .3s ease;
+  }
+  .quest-input:focus{ border-color: var(--red); }
+
+  .quest-options{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .quest-opt{
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    color: var(--ivory-dim);
+    background: rgba(244,233,220,.03);
+    border: 1px solid rgba(244,233,220,.16);
+    border-radius: 999px;
+    padding: 9px 16px;
+    cursor: pointer;
+    transition: all .25s ease;
+  }
+  .quest-opt:hover{ border-color: rgba(200,29,56,.5); color: var(--ivory); }
+  .quest-opt.selected{
+    border-color: var(--red);
+    color: var(--ivory);
+    background: linear-gradient(120deg, rgba(200,29,56,.22), rgba(184,147,90,.14));
+  }
+
+  .quest-hint-btn{
+    margin-top: 10px;
+    background: none;
+    border: none;
+    color: var(--red-soft);
+    font-size: 12.5px;
+    font-style: italic;
+    opacity: .7;
+    cursor: pointer;
+    padding: 0;
+  }
+  .quest-hint-btn:hover{ opacity: 1; }
+
+  .quest-hint{
+    display: none;
+    margin: 8px 0 0;
+    font-size: 13px;
+    color: var(--ivory-dim);
+    opacity: .8;
+  }
+  .quest-hint.show{ display: block; }
+
+  .quest-submit{
+    margin-top: 6px;
+    align-self: center;
+    background: linear-gradient(120deg, var(--red-soft), var(--red));
+    border: none;
+    border-radius: 999px;
+    padding: 14px 34px;
+    color: var(--ivory);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter .3s ease, transform .2s ease;
+  }
+  .quest-submit:hover{ filter: brightness(1.1); }
+  .quest-submit:active{ transform: scale(.97); }
+
+  .quest-result{
+    text-align: center;
+    margin: 22px 0 0;
+    font-size: 14.5px;
+    color: var(--ivory-dim);
+    min-height: 20px;
+  }
+
+  .quest-reward{
+    display: none;
+    margin-top: 36px;
+    padding: 30px 30px 26px;
+    border-radius: 18px;
+    border: 1px solid rgba(200,29,56,.3);
+    background:
+      radial-gradient(500px 260px at 15% -10%, rgba(200,29,56,.12), transparent 65%),
+      rgba(43,16,21,.3);
+    text-align: center;
+  }
+  .quest-reward.show{ display: block; animation: panel-in .6s cubic-bezier(.22,.68,.1,1); }
+
+  .quest-fact{
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--ivory);
+    margin: 6px 0 22px;
+  }
+
+  .quest-more{
+    background: none;
+    border: 1px solid rgba(244,233,220,.25);
+    border-radius: 999px;
+    padding: 11px 22px;
+    color: var(--ivory-dim);
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    cursor: pointer;
+    transition: border-color .3s ease, color .3s ease;
+  }
+  .quest-more:hover{ border-color: var(--red); color: var(--ivory); }
+
+  .quest-new{
+    display:block;
+    margin:0 auto 30px;
+  }
+
+  /* ---------- GALLERY ---------- */
+
+  .gallery-section{
+    position:relative;
+    isolation:isolate;
+    padding: 20px 0 100px;
+  }
+
+  .gallery-section::after{
+    content:"";
+    position:absolute;
+    z-index:-1;
+    inset:-28px -42px 30px;
+    border:1px solid rgba(244,233,220,.08);
+    border-radius:28px;
+    background:linear-gradient(90deg, rgba(21,10,12,.92), rgba(21,10,12,.58), rgba(21,10,12,.92)), url('gallery/photo2.jpg') center/cover;
+    opacity:.72;
+    filter:saturate(.72);
+    box-shadow:inset 0 0 80px rgba(10,5,6,.72), 0 24px 70px -44px rgba(0,0,0,.9);
+  }
+
+  .memory-divider{
+    position:relative;
+    height:170px;
+    margin:0 -8px 86px;
+    overflow:hidden;
+    border:1px solid rgba(244,233,220,.14);
+    border-radius:22px;
+    background-color:rgba(43,16,21,.7);
+    box-shadow:0 28px 60px -40px rgba(0,0,0,.9);
+  }
+
+  .memory-divider::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    background:linear-gradient(90deg, rgba(21,10,12,.93), rgba(21,10,12,.24) 48%, rgba(21,10,12,.9));
+  }
+
+  .memory-divider::after{
+    content:"";
+    position:absolute;
+    inset:12px;
+    border:1px solid rgba(244,233,220,.14);
+    border-radius:14px;
+  }
+
+  .memory-divider.street{ background:url('gallery/photo1.jpg') center 38%/cover; }
+  .memory-divider.walk{ background:url('gallery/photo3.jpg') center 42%/cover; }
+  .memory-divider.promise{ background:url('gallery/photo4.jpg') center 45%/cover; }
+
+  .gallery-grid{
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+
+  .gallery-item{
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 3/4;
+    padding: 0;
+    border: 1px solid rgba(244,233,220,.12);
+    border-radius: 14px;
+    overflow: hidden;
+    background: rgba(0,0,0,.2);
+    cursor: pointer;
+    opacity: 0;
+    transform: translateY(16px);
+    transition: border-color .35s ease, box-shadow .35s ease, transform .5s cubic-bezier(.22,.68,.1,1), opacity .5s ease;
+  }
+
+  .gallery-item.in-view{
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .gallery-item:nth-child(1){ transition-delay: .02s; }
+  .gallery-item:nth-child(2){ transition-delay: .1s; }
+  .gallery-item:nth-child(3){ transition-delay: .18s; }
+  .gallery-item:nth-child(4){ transition-delay: .26s; }
+  .gallery-item:nth-child(5){ transition-delay: .34s; }
+
+  .gallery-item img{
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    filter: grayscale(.15) contrast(1.04);
+    transition: transform .6s cubic-bezier(.22,.68,.1,1), filter .4s ease;
+  }
+
+  .gallery-item::after{
+    content:"";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, transparent 55%, rgba(15,6,7,.55));
+    opacity: 0;
+    transition: opacity .35s ease;
+  }
+
+  .gallery-item:hover{
+    border-color: rgba(200,29,56,.5);
+    box-shadow: 0 16px 40px -20px rgba(200,29,56,.5);
+  }
+
+  .gallery-item:hover img{
+    transform: scale(1.06);
+    filter: grayscale(0) contrast(1.04);
+  }
+
+  .gallery-item:hover::after{ opacity: 1; }
+
+  @media (max-width: 640px){
+    .gallery-grid{ grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  }
+
+  .lightbox{
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    background: rgba(6,3,4,.88);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .4s ease;
+  }
+
+  .lightbox.show{
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .lightbox-figure{
+    margin: 0;
+    max-width: min(560px, 90vw);
+    text-align: center;
+    transform: scale(.94);
+    transition: transform .4s cubic-bezier(.22,.68,.1,1);
+  }
+
+  .lightbox.show .lightbox-figure{ transform: scale(1); }
+
+  .lightbox-figure img{
+    max-width: 100%;
+    max-height: 78vh;
+    border-radius: 14px;
+    box-shadow: 0 30px 80px -20px rgba(0,0,0,.75);
+    display: block;
+    margin: 0 auto;
+  }
+
+  .lightbox-figure figcaption{
+    margin-top: 16px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    color: var(--ivory-dim);
+    font-size: 16px;
+  }
+
+  .lightbox-close{
+    position: absolute;
+    top: 22px;
+    right: 22px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 1px solid rgba(244,233,220,.25);
+    background: rgba(0,0,0,.3);
+    color: var(--ivory);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    transition: border-color .3s ease;
+  }
+
+  .lightbox-close:hover{ border-color: var(--red); }
+
+  /* ---------- HIDDEN EASTER EGG DOTS ---------- */
+
+  .egg-dot{
+    cursor: pointer;
+  }
+
+  .egg-dot-hero{
+    position: absolute;
+    right: -14px;
+    bottom: 6px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--red);
+    opacity: .05;
+    transition: opacity .3s ease;
+  }
+  .egg-dot-hero:hover{ opacity: .35; }
+
+  .egg-dot-gallery{
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--gold);
+    opacity: .12;
+    transition: opacity .3s ease;
+  }
+  .egg-dot-gallery:hover{ opacity: .55; }
+
+  .footer-hint .egg-dot{
+    opacity: 1;
+    letter-spacing: 1px;
+    transition: color .3s ease;
+  }
+  .footer-hint .egg-dot:hover{ color: var(--red-soft); }
+
+  /* ---------- HIDDEN BOTTOM (past the footer) ---------- */
+
+  .hidden-bottom{
+    max-width: 480px;
+    margin: 0 auto;
+    padding: 70px 28px 100px;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity .9s ease, transform .9s ease;
+  }
+  .hidden-bottom.in-view{
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .hidden-bottom-text{
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    color: var(--ivory-dim);
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  /* ---------- INTRO WELCOME SCREEN ---------- */
+
+  .intro-screen{
+    position: fixed;
+    inset: 0;
+    z-index: 320;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 28px;
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -5%, rgba(200,29,56,.16), transparent 60%),
+      linear-gradient(180deg, var(--wine-1), var(--wine-2) 70%);
+    cursor: pointer;
+    transition: opacity 1.1s ease;
+  }
+
+  .intro-screen.hide{
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .intro-text{
+    max-width: 480px;
+    text-align: center;
+  }
+
+  .intro-text p{
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: clamp(17px, 4vw, 21px);
+    line-height: 1.75;
+    color: var(--ivory);
+    margin: 0 0 22px;
+    opacity: 0;
+    transform: translateY(14px);
+    animation: fade-up 1s ease forwards;
+  }
+
+  .intro-text p:nth-child(1){ animation-delay: .2s; }
+  .intro-text p:nth-child(2){ animation-delay: .8s; }
+  .intro-text p:nth-child(3){ animation-delay: 1.6s; color: var(--gold); margin-bottom: 0; }
+
+  /* ---------- PASSWORD GATE ---------- */
+
+  body.gate-lock{
+    overflow: hidden;
+  }
+
+  .gate{
+    position: fixed;
+    inset: 0;
+    z-index: 300;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background:
+      radial-gradient(ellipse 900px 500px at 50% -5%, rgba(200,29,56,.16), transparent 60%),
+      linear-gradient(180deg, var(--wine-1), var(--wine-2) 70%);
+    transition: opacity .6s ease;
+  }
+
+  .gate.hide{
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .gate-box{
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+  }
+
+  .gate-title{
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-style: italic;
+    font-size: clamp(28px, 7vw, 38px);
+    margin: 6px 0 30px;
+    color: var(--ivory);
+  }
+
+  .gate-box form{
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .gate-box input{
+    width: 100%;
+    box-sizing: border-box;
+    background: rgba(244,233,220,.04);
+    border: 1px solid rgba(244,233,220,.22);
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: var(--ivory);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    text-align: center;
+    outline: none;
+    transition: border-color .3s ease;
+  }
+  .gate-box input:focus{ border-color: var(--red); }
+
+  .gate-box button{
+    background: linear-gradient(120deg, var(--red-soft), var(--red));
+    border: none;
+    border-radius: 12px;
+    padding: 14px 16px;
+    color: var(--ivory);
+    font-family: 'Inter', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: .02em;
+    cursor: pointer;
+    transition: filter .3s ease, transform .2s ease;
+  }
+  .gate-box button:hover{ filter: brightness(1.1); }
+  .gate-box button:active{ transform: scale(.98); }
+
+  .gate-error{
+    margin-top: 14px;
+    color: var(--red-soft);
+    font-size: 13.5px;
+    opacity: .9;
+  }
+
+  .gate-hint-btn{
+    display: block;
+    margin: 18px auto 0;
+    background: none;
+    border: none;
+    color: var(--red-soft);
+    font-size: 12.5px;
+    font-style: italic;
+    opacity: .7;
+    cursor: pointer;
+    padding: 0;
+  }
+  .gate-hint-btn:hover{ opacity: 1; }
+
+  .gate-hint{
+    display: none;
+    margin: 10px 0 0;
+    font-size: 13px;
+    color: var(--ivory-dim);
+    opacity: .8;
+  }
+  .gate-hint.show{ display: block; }
+
+  .gate.shake .gate-box{
+    animation: gate-shake .45s ease;
+  }
+
+  @keyframes gate-shake{
+    0%, 100%{ transform: translateX(0); }
+    20%{ transform: translateX(-8px); }
+    40%{ transform: translateX(7px); }
+    60%{ transform: translateX(-5px); }
+    80%{ transform: translateX(4px); }
+  }
+
+  /* ---------- SECRET EASTER EGG ---------- */  .secret-trigger{
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 40;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: none;
+    color: var(--red-soft);
+    font-size: 15px;
+    opacity: .13;
+    cursor: pointer;
+    animation: kiss-heart-beat 4.5s ease-in-out infinite;
+    transition: opacity .4s ease;
+  }
+
+  .secret-trigger:hover,
+  .secret-trigger:focus-visible{
+    opacity: .5;
+  }
+
+  .footer-hint{
+    display: inline-block;
+    margin-top: 6px;
+    font-size: 11.5px;
+    opacity: .4;
+    font-style: italic;
+  }
+
+  .secret-overlay{
+    position: fixed;
+    inset: 0;
+    z-index: 80;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(10,5,6,.72);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .45s ease;
+  }
+
+  .secret-overlay.show{
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .secret-box{
+    position: relative;
+    max-width: 480px;
+    width: 100%;
+    padding: 38px 34px 32px;
+    border-radius: 20px;
+    border: 1px solid rgba(200,29,56,.3);
+    background:
+      radial-gradient(500px 260px at 15% -10%, rgba(200,29,56,.12), transparent 65%),
+      linear-gradient(180deg, var(--wine-2), var(--wine-1));
+    box-shadow: 0 30px 70px -30px rgba(0,0,0,.7);
+    transform: translateY(18px) scale(.97);
+    transition: transform .45s cubic-bezier(.22,.68,.1,1);
+  }
+
+  .secret-overlay.show .secret-box{
+    transform: translateY(0) scale(1);
+  }
+
+  .secret-box h2{
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: clamp(24px, 5vw, 30px);
+    margin: 4px 0 16px;
+  }
+
+  .secret-box p{
+    font-size: 15.5px;
+    line-height: 1.7;
+    color: var(--ivory-dim);
+    margin: 0 0 14px;
+  }
+
+  .secret-close{
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid rgba(244,233,220,.2);
+    background: rgba(0,0,0,.2);
+    color: var(--ivory-dim);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition: border-color .3s ease, color .3s ease;
+  }
+
+  .secret-close:hover{
+    border-color: var(--red);
+    color: var(--ivory);
+  }
+
+  /* ---------- TYPEWRITER LETTER ---------- */
+
+  .letter p.typing::after{
+    content: "|";
+    margin-left: 2px;
+    color: var(--red-soft);
+    animation: blink-cursor .8s steps(1) infinite;
+  }
+
+  @keyframes blink-cursor{
+    50%{ opacity: 0; }
+  }
+
+  /* ---------- GALLERY VIEW TOGGLE + CONSTELLATION ---------- */
+
+  .gallery-view-toggle{
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 26px;
+  }
+
+  .view-btn{
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    letter-spacing: .01em;
+    color: var(--ivory-dim);
+    background: rgba(244,233,220,.03);
+    border: 1px solid rgba(244,233,220,.16);
+    border-radius: 999px;
+    padding: 8px 18px;
+    cursor: pointer;
+    transition: border-color .3s ease, color .3s ease, background .3s ease;
+  }
+  .view-btn:hover{ border-color: rgba(200,29,56,.5); color: var(--ivory); }
+  .view-btn.active{
+    color: var(--ivory);
+    border-color: var(--red);
+    background: linear-gradient(120deg, rgba(200,29,56,.22), rgba(184,147,90,.14));
+  }
+
+  .constellation-wrap{
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    aspect-ratio: 4 / 5;
+    margin: 0 auto;
+    border-radius: 22px;
+    overflow: hidden;
+    background:
+      radial-gradient(ellipse at 50% 28%, rgba(200,29,56,.10), transparent 65%),
+      rgba(9,4,5,.55);
+    border: 1px solid rgba(244,233,220,.1);
+  }
+
+  .constellation-wrap canvas{
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  .star-point{
+    position: absolute;
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    border: 2px solid var(--gold);
+    background: var(--wine-2);
+    overflow: hidden;
+    cursor: pointer;
+    box-shadow: 0 0 0 4px rgba(9,4,5,.6), 0 0 16px rgba(184,147,90,.5);
+    transition: transform .3s ease, box-shadow .3s ease, border-color .3s ease;
+  }
+  .star-point:hover{
+    transform: translate(-50%, -50%) scale(1.14);
+    border-color: var(--red-soft);
+    box-shadow: 0 0 0 4px rgba(9,4,5,.6), 0 0 26px rgba(200,29,56,.75);
+  }
+  .star-point img{
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  @media (max-width: 560px){
+    .star-point{ width: 46px; height: 46px; }
+  }
+
+  /* ---------- ASK-ME CHAT ---------- */
+
+  .ask-section{
+    position: relative;
+    padding: 20px 0 90px;
+    max-width: 560px;
+    margin: 0 auto;
+  }
+
+  .ask-chat{
+    border: 1px solid rgba(244,233,220,.16);
+    border-radius: 20px;
+    background: rgba(43,16,21,.3);
+    padding: 20px;
+    box-shadow: 0 20px 50px -30px rgba(0,0,0,.6);
+  }
+
+  .ask-messages{
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    max-height: 340px;
+    overflow-y: auto;
+    padding-right: 4px;
+    margin-bottom: 14px;
+  }
+
+  .ask-msg{
+    max-width: 82%;
+    padding: 10px 15px;
+    border-radius: 15px;
+    font-size: 14.5px;
+    line-height: 1.55;
+    animation: panel-in .35s ease;
+  }
+
+  .ask-msg.bot{
+    align-self: flex-start;
+    background: rgba(244,233,220,.06);
+    border: 1px solid rgba(244,233,220,.14);
+    color: var(--ivory);
+    border-bottom-left-radius: 4px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+  }
+
+  .ask-msg.user{
+    align-self: flex-end;
+    background: linear-gradient(120deg, rgba(200,29,56,.35), rgba(184,147,90,.2));
+    border: 1px solid rgba(200,29,56,.4);
+    color: var(--ivory);
+    border-bottom-right-radius: 4px;
+  }
+
+  .ask-typing{
+    display: none;
+    align-self: flex-start;
+    font-size: 13px;
+    font-style: italic;
+    color: var(--ivory-dim);
+    opacity: .7;
+    padding: 0 4px;
+  }
+  .ask-typing.show{ display: block; }
+
+  .ask-form{
+    display: flex;
+    gap: 10px;
+  }
+
+  .ask-input{
+    flex: 1;
+    min-width: 0;
+    background: rgba(244,233,220,.03);
+    border: 1px solid rgba(244,233,220,.18);
+    border-radius: 999px;
+    padding: 12px 16px;
+    color: var(--ivory);
+    font-family: 'Inter', sans-serif;
+    font-size: 14.5px;
+    outline: none;
+    transition: border-color .3s ease;
+  }
+  .ask-input:focus{ border-color: var(--red); }
+
+  .ask-send{
+    background: linear-gradient(120deg, var(--red-soft), var(--red));
+    border: none;
+    border-radius: 999px;
+    padding: 0 22px;
+    color: var(--ivory);
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter .3s ease, transform .2s ease;
+  }
+  .ask-send:hover{ filter: brightness(1.1); }
+  .ask-send:active{ transform: scale(.96); }
+
+  /* ---------- SCRATCH CARD ---------- */
+
+  .scratch-section{
+    padding: 20px 0 90px;
+    max-width: 560px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .scratch-card{
+    position: relative;
+    margin: 0 auto;
+    max-width: 440px;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid rgba(200,29,56,.25);
+    box-shadow: 0 20px 50px -30px rgba(0,0,0,.6);
+  }
+
+  .scratch-reveal{
+    padding: 44px 30px;
+    min-height: 170px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    background: linear-gradient(160deg, rgba(200,29,56,.16), rgba(43,16,21,.42));
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 18px;
+    line-height: 1.7;
+    color: var(--ivory);
+  }
+
+  .scratch-canvas{
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+    cursor: pointer;
+    transition: opacity .8s ease;
+  }
+
+  .scratch-card.done .scratch-canvas{
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  .scratch-hint{
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--ivory-dim);
+    opacity: .65;
+    font-style: italic;
+  }
+
+  /* ---------- BROKEN HEART PUZZLE ---------- */
+
+  .puzzle-section{
+    padding: 20px 0 90px;
+    max-width: 560px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .puzzle-wrap{
+    position: relative;
+    width: min(300px, 78vw);
+    aspect-ratio: 1;
+    margin: 0 auto;
+  }
+
+  .puzzle-piece{
+    cursor: grab;
+    transform-box: fill-box;
+    transform-origin: center;
+    touch-action: none;
+    transition: transform .35s cubic-bezier(.34,1.56,.64,1);
+  }
+  .puzzle-piece.dragging{
+    cursor: grabbing;
+    transition: none;
+  }
+  .puzzle-piece.placed{ cursor: default; }
+
+  .puzzle-message{
+    display: none;
+    margin-top: 30px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 17px;
+    line-height: 1.6;
+    color: var(--ivory);
+    max-width: 44ch;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .puzzle-message.show{
+    display: block;
+    animation: panel-in .6s cubic-bezier(.22,.68,.1,1);
+  }
+
+  .puzzle-hint{
+    margin-top: 14px;
+    font-size: 13px;
+    color: var(--ivory-dim);
+    opacity: .65;
+    font-style: italic;
+  }
+
+  /* ---------- DAISY: LOVE / LOVE-NOT ---------- */
+
+  .daisy-section{
+    padding: 20px 0 90px;
+    max-width: 560px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .daisy-wrap{
+    position: relative;
+    width: 220px;
+    height: 220px;
+    margin: 0 auto 20px;
+  }
+
+  .daisy-core{
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 38px;
+    height: 38px;
+    margin: -19px 0 0 -19px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, var(--gold), #7a5a34 75%);
+    box-shadow: 0 0 20px rgba(184,147,90,.5);
+    z-index: 2;
+  }
+
+  .daisy-petal{
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 26px;
+    height: 74px;
+    margin: -74px 0 0 -13px;
+    transform-origin: 50% 100%;
+    border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+    background: linear-gradient(180deg, var(--ivory), rgba(244,233,220,.7));
+    cursor: pointer;
+    transition: transform .5s cubic-bezier(.4,0,.2,1), opacity .5s ease;
+    z-index: 1;
+    box-shadow: 0 4px 10px rgba(0,0,0,.25);
+    border: none;
+    padding: 0;
+  }
+  .daisy-petal:hover{ filter: brightness(1.06); }
+  .daisy-petal.plucked{ opacity: 0; pointer-events: none; }
+
+  .daisy-label{
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 22px;
+    color: var(--red-soft);
+    min-height: 30px;
+    margin: 0 0 18px;
+    transition: color .4s ease;
+  }
+  .daisy-wrap.done ~ .daisy-label{ color: var(--gold); }
+
+  /* ---------- HEART CATCHER GAME ---------- */
+
+  .catch-section{
+    padding: 20px 0 90px;
+    max-width: 560px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .catch-wrap{
+    position: relative;
+    width: min(320px, 84vw);
+    margin: 0 auto;
+  }
+
+  .catch-wrap canvas{
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    border-radius: 20px;
+    border: 1px solid rgba(244,233,220,.14);
+    background:
+      radial-gradient(ellipse at 50% 0%, rgba(200,29,56,.12), transparent 60%),
+      rgba(10,5,6,.5);
+    touch-action: none;
+    display: block;
+  }
+
+  .catch-hud{
+    position: absolute;
+    top: 12px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 16px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    color: var(--ivory-dim);
+    pointer-events: none;
+  }
+
+  .catch-start{
+    margin-top: 18px;
+  }
+
+  .catch-result{
+    margin-top: 16px;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 16px;
+    color: var(--ivory);
+    min-height: 20px;
+    max-width: 40ch;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* ---------- RULES CHECKLIST ---------- */
+
+  .rules-section{
+    padding: 20px 0 90px;
+    max-width: 560px;
+    margin: 0 auto;
+    text-align: center;
+  }
+
+  .rules-list{
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 480px;
+    margin: 0 auto;
+    text-align: left;
+  }
+
+  .rule-item{
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    background: rgba(244,233,220,.03);
+    border: 1px solid rgba(244,233,220,.14);
+    border-radius: 14px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: border-color .3s ease, background .3s ease;
+    width: 100%;
+    text-align: left;
+  }
+  .rule-item:hover{ border-color: rgba(200,29,56,.4); }
+  .rule-item.signed{
+    border-color: var(--red);
+    background: linear-gradient(120deg, rgba(200,29,56,.14), rgba(184,147,90,.08));
+  }
+
+  .rule-check{
+    flex: 0 0 auto;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(244,233,220,.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    color: transparent;
+    background: transparent;
+    transition: all .3s ease;
+  }
+  .rule-item.signed .rule-check{
+    border-color: var(--red);
+    color: var(--ivory);
+    background: var(--red);
+  }
+
+  .rule-text{
+    font-size: 14.5px;
+    color: var(--ivory-dim);
+    line-height: 1.5;
+    transition: color .3s ease;
+  }
+  .rule-item.signed .rule-text{ color: var(--ivory); }
+
+  .rules-status{
+    text-align: center;
+    margin: 20px 0 0;
+    font-size: 13.5px;
+    color: var(--ivory-dim);
+    font-style: italic;
+  }
+
+  /* ---------- VINYL DISC (music toggle) ---------- */
+
+  .vinyl-disc{
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    background:
+      radial-gradient(circle at 50% 50%, var(--gold) 0 14%, #1a0d0f 15% 56%, var(--gold) 57% 63%, #1a0d0f 64% 100%);
+  }
+  .music-toggle.playing .vinyl-disc{
+    animation: vinyl-spin 2.2s linear infinite;
+  }
+  @keyframes vinyl-spin{ to{ transform: rotate(360deg); } }
+
+  /* ---------- ENVELOPE TILT (desktop) ---------- */
+
+  .envelope{ perspective: 700px; }
+  .envelope-face{
+    transition: transform .3s ease;
+    will-change: transform;
+  }
+
+  @media (max-width: 560px){
+    .container{ padding:0 22px 0 31px; }
+    .container::before{ left:12px; top:44px; bottom:54px; }
+    .container::after{ left:6px; width:11px; height:11px; }
+    .story::before, .gallery-section::before, .quest-section::before, .finale::before{ left:-24px; }
+    .hero{ min-height:88svh; padding:34px 22px; }
+    .hero p{ font-size:16px; }
+    .story-tabs{ gap:8px; margin-bottom:32px; }
+    .tab-btn{ padding:10px 14px; font-size:13px; }
+    .gallery-grid{ grid-template-columns:repeat(2, 1fr); gap:10px; }
+    .gallery-item:nth-child(1){ grid-column:span 2; aspect-ratio:16/10; }
+    .memory-divider{ height:132px; margin:0 0 66px; border-radius:18px; }
+    .gallery-section::after{ inset:-20px -14px 24px; border-radius:22px; }
+    .finale::after{ inset:-12px -14px 0; }
+    .quest-section{ padding-bottom:78px; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    *, *::before, *::after{ animation-duration:.01ms !important; animation-iteration-count:1 !important; scroll-behavior:auto !important; transition-duration:.01ms !important; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="intro-screen" id="introScreen">
+    <div class="intro-text">
+      <p>В отношениях должно быть всё обоюдно:</p>
+      <p>Писать и звонить должны оба. Идти на примирение должны оба. Уступать друг другу должны оба.</p>
+      <p>Вы не должны забывать, что вы вдвоём против всех проблем и всего мира, а не против друг друга.</p>
+    </div>
+  </div>
+
+  <div class="gate" id="siteGate">
+    <div class="gate-box">
+      <p class="beat-label" style="text-align:center;">вход только для своих</p>
+      <h1 class="gate-title">Введи пароль</h1>
+      <form id="gateForm" autocomplete="off">
+        <input type="text" id="gateInput" placeholder="пароль" autocomplete="off" autocapitalize="off" spellcheck="false">
+        <button type="submit">Войти</button>
+      </form>
+      <p class="gate-error" id="gateError" style="display:none;">неверно, попробуй ещё раз</p>
+      <button type="button" class="gate-hint-btn" id="gateHintBtn">подсказка</button>
+      <p class="gate-hint" id="gateHint">Какой у тебя любимый вкус чипсов?</p>
+    </div>
+  </div>
+
+  <div class="scroll-progress" id="scrollProgress"></div>
+  <div class="ambient-glow"></div>
+
+  <div class="embers" aria-hidden="true">
+    <span></span><span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span><span></span>
+  </div>
+
+  <div class="cursor-glow" id="cursorGlow" aria-hidden="true"></div>
+  <div class="heart-burst" id="heartBurst" aria-hidden="true"></div>
+
+  <audio id="bgAudio" src="song.mp3" preload="none" loop></audio>
+  <div class="visit-badge" id="visitBadge"></div>
+  <button class="music-toggle" id="musicToggle" type="button" aria-pressed="false" aria-label="Включить музыку">
+    <span class="vinyl-disc" aria-hidden="true"></span>
+    <span class="music-icon">
+      <span class="bar"></span><span class="bar"></span><span class="bar"></span>
+    </span>
+    <span class="music-label">музыка</span>
+  </button>
+
+  <section class="hero">
+    <p class="hero-kicker">история одной улицы, ста дней и одного взгляда</p>
+    <div class="hero-title-reveal"><h1 id="heroTitle">Май<span>нура</span></h1><span class="egg-dot egg-dot-hero" data-egg="hero"></span></div>
+    <p>Этот сайт про одну девушку. Про её взгляд, её красоту, и про сто дней, которые я не хочу забывать.</p>
+    <div class="hero-scroll"></div>
+  </section>
+
+  <div class="container">
+    <div class="story">
+      <p class="beat-label" style="margin-bottom:6px;">выбери тему</p>
+      <p class="story-hint">Нажми на то, что хочешь прочитать первым — читать по порядку не обязательно.</p>
+
+      <div class="story-tabs" role="tablist">
+        <button class="tab-btn" type="button" data-tab="1" role="tab" aria-selected="false">Улица у школы</button>
+        <button class="tab-btn" type="button" data-tab="2" role="tab" aria-selected="false">Твой взгляд</button>
+        <button class="tab-btn" type="button" data-tab="3" role="tab" aria-selected="false">Нить дотянулась</button>
+        <button class="tab-btn" type="button" data-tab="4" role="tab" aria-selected="false">Сто дней</button>
+        <button class="tab-btn" type="button" data-tab="5" role="tab" aria-selected="false">Просто Майнура</button>
+        <button class="tab-btn" type="button" data-tab="6" role="tab" aria-selected="false">Дым в темноте</button>
+        <button class="tab-btn kiss-tab" type="button" data-tab="7" role="tab" aria-selected="false">Поцелуй</button>
+        <button class="tab-btn forever-tab" type="button" data-tab="8" role="tab" aria-selected="false">Навсегда</button>
+      </div>
+
+      <div class="story-panels">
+        <p class="story-empty" id="storyEmpty">выбери тему выше — она откроется здесь ↑</p>
+
+        <article class="beat tab-panel" data-tab="1" role="tabpanel">
+          <p class="beat-label">тогда</p>
+          <h2>Улица у школы</h2>
+          <p>Я шёл с колледжа — так же, как шёл сотни раз до этого. Ничего не предвещало, что этот путь станет особенным. Но иногда судьба не спрашивает разрешения: она просто ставит человека на твоём пути в нужную секунду. Ты стояла у школы, рядом с каким-то парнем, и мир вокруг на мгновение стал тише. Я тогда ещё не знал, что эта случайная улица окажется началом всего. Просто почувствовал: что-то изменилось. Ты мне сразу понравилась — без единого сказанного слова, без повода, просто потому что ты была ты.</p>
+        </article>
+
+        <article class="beat tab-panel" data-tab="2" role="tabpanel">
+          <p class="beat-label">что я запомнил</p>
+          <h2>Твой взгляд</h2>
+          <p>Говорят, первое впечатление обманчиво. Но в тот момент я не думал о правилах — я просто смотрел. Именно тогда, в ту самую секунду у школы, я запомнил твою ослепительную красоту и твой взгляд в мою сторону, и внутри что-то тихо щёлкнуло — я сразу понял, что между нами что-то есть, даже если сам ещё не знал, что с этим делать. Ты была не одна, и я не стал ничего предпринимать. Просто запомнил этот момент так, как запоминают редкие вещи — целиком, без права забыть.</p>
+        </article>
+
+        <article class="beat tab-panel" data-tab="3" role="tabpanel">
+          <p class="beat-label">спустя время</p>
+          <h2>Нить дотянулась</h2>
+          <p>Есть теория, что каждый человек однажды встречает того, с кем его невидимо связывает нить — и неважно, сколько времени пройдёт, она рано или поздно натянется и приведёт обратно друг к другу. То, что казалось просто воспоминанием с улицы у школы, однажды вернулось само, без моих усилий, будто время просто ждало подходящего момента. Мы снова оказались рядом. И в этот раз всё пошло по-другому — потому что обстоятельства наконец совпали с тем, что я почувствовал с самого начала.</p>
+        </article>
+
+        <article class="beat tab-panel" data-tab="4" role="tabpanel">
+          <p class="beat-label">день сотый</p>
+          <h2>Сто дней</h2>
+          <p class="big-number" id="bigNumber">100</p>
+          <p class="big-number-cap">дней рядом — и продолжаем считать</p>
+          <p>Сто дней — это не просто цифра в календаре. Это сто раз, когда я мог отвлечься, устать, забыть — и ни разу не забыл. Это сто маленьких решений каждый день выбирать тебя заново. И с каждым таким днём я всё больше убеждаюсь: ты просто бомба. Не в переносном смысле. В самом настоящем — ты взрываешь любое моё представление о том, каким может быть человек рядом.</p>
+        </article>
+
+        <article class="beat tab-panel" data-tab="5" role="tabpanel">
+          <p class="beat-label">за что я люблю</p>
+          <h2>Просто Майнура</h2>
+          <p>Любовь редко объясняется списком причин — но если бы меня попросили назвать хотя бы одну, я бы сказал: за ослепительную красоту, которую я запомнил с первого взгляда и не разлюбил ни на секунду. За твой характер, который делает меня то мягче, то увереннее — смотря что нужно в моменте. За то, какая ты рядом со мной, когда никто не видит и не нужно ничего изображать. И, наверное, самое честное — я люблю тебя не за что-то одно, а просто за то, что ты — Майнура. Иногда этого одного факта достаточно, чтобы всё остальное встало на свои места.</p>
+        </article>
+
+        <article class="beat tab-panel" data-tab="6" role="tabpanel">
+          <p class="beat-label">наши ночи</p>
+          <h2>Дым в темноте</h2>
+          <p>Есть особая философия в тишине вдвоём — когда не нужно ничего доказывать и объяснять, а можно просто быть. Лучшее время — ночь, когда нам никто не мешает. Мы сидим вдвоём, пускаем дым прямо в воздух и смотрим, как он медленно растворяется, будто вместе с ним растворяются любые тревоги дня. Мы молчим — и в этой тишине я каждый раз заново понимаю, как сильно дорожу тобой, потому что не с каждым человеком молчание бывает таким спокойным. Потом мы целуемся, и всё вокруг на секунду перестаёт иметь значение — остаёмся только мы.</p>
+        </article>
+
+        <article class="beat kiss-beat tab-panel" data-tab="7" role="tabpanel">
+          <p class="beat-label">27 августа, два часа ночи</p>
+          <h2>Поцелуй</h2>
+          <p>Есть моменты, которые сердце запоминает раньше, чем разум успевает их осознать. Этот момент был именно таким. Два часа ночи, 27 августа — я решился поцеловать тебя в щёку, и моё сердце почти остановилось. До сих пор не знаю, было это от счастья или от страха, что что-то может пойти не так. Но тебе понравилось — и вся тревога исчезла в ту же секунду, будто её и не было.</p>
+          <p>Полчаса спустя я решился на большее. В этот раз — в губы. Мы оба замерли в одно и то же мгновение, будто время специально сделало паузу, чтобы дать нам это прочувствовать. Ни один из нас не ждал, что всё случится именно так — тихо, без слов, само собой. И, кажется, в этом и есть настоящая близость: не в громких признаниях, а в моменте, когда двое одновременно понимают одно и то же без единого слова.</p>
+          <p>В первом поцелуе всегда умещается целая философия — весь страх что-то испортить и вся смелость всё равно рискнуть. Это было не просто действие. Это было решение довериться друг другу без гарантий и без сценария, полагаясь только на то, что чувствуешь именно в этот момент. И тот вечер стал лучшим подарком, который я получил на свой день рождения — не вещь и не слова, а ты, разделившая со мной эту тишину и эту смелость.</p>
+          <p class="sign">Люблю тебя, Майнура.</p>
+        </article>
+
+        <article class="beat forever-beat tab-panel" data-tab="8" role="tabpanel">
+          <p class="beat-label">то, во что я верю</p>
+          <h2>Навсегда</h2>
+          <p>Майнура, я надеюсь, что мы останемся вместе на всю жизнь. Не потому что так положено или так проще — а потому что я этого по-настоящему хочу. Что бы ни случилось между нами, как бы сильно мы ни ругались, сколько бы раз ни было тяжело или обидно — я хочу оставаться рядом. Не с той версией нас, где всё идеально и легко, а с настоящей — той, где бывают ссоры, усталость, молчание и снова примирение. Потому что именно это, мне кажется, и есть любовь на всю жизнь — не отсутствие трудностей, а решение проходить через них вместе, а не по отдельности.</p>
+          <p>Я не верю в любовь, которая держится только на хороших днях. Настоящая любовь проверяется не улыбками, а тем, что происходит после ссоры — остаёмся мы или уходим. И я выбираю оставаться. Выбирать тебя не только тогда, когда легко, а особенно тогда, когда трудно. Потому что легко любить человека, когда всё хорошо — а по-настоящему любят того, ради кого готов возвращаться снова и снова, даже после самых тяжёлых слов.</p>
+          <p>Время меняет людей — это неизбежно. Мы будем меняться, спорить, иногда не понимать друг друга. Но я хочу, чтобы, несмотря на все перемены, одно оставалось неизменным — что мы по-прежнему выбираем быть друг у друга. Не идеальными, а настоящими. Не всегда правыми, но всегда готовыми вернуться друг к другу. Вот в это «навсегда» я и верю — не в сказку без единой трещины, а в две руки, которые не разжимаются, даже когда тяжело.</p>
+          <p class="sign">Навсегда — это ты. Люблю тебя, Майнура.</p>
+        </article>
+      </div>
+    </div>
+
+    <div class="memory-divider street" aria-hidden="true"></div>
+
+    <section class="gallery-section">
+      <p class="beat-label" style="text-align:center">кадры</p>
+      <h2 style="display:block; text-align:center; margin-bottom:14px;">Мы</h2>
+      <p class="finale-intro" style="margin-bottom:30px;">Немного моментов, которые я не хочу забывать. Нажми на любой, чтобы посмотреть крупнее.</p>
+
+      <div class="gallery-view-toggle">
+        <button type="button" class="view-btn active" data-view="grid">сетка</button>
+        <button type="button" class="view-btn" data-view="constellation">созвездие</button>
+      </div>
+
+      <div class="gallery-grid" id="galleryGridView">
+        <button class="gallery-item" type="button" data-full="gallery/photo1.jpg" data-caption="тёплый вечер">
+          <img src="gallery/photo1.jpg" alt="Майнура" loading="lazy">
+        </button>
+        <button class="gallery-item" type="button" data-full="gallery/photo2.jpg" data-caption="наши прогулки">
+          <img src="gallery/photo2.jpg" alt="Мы вдвоём на прогулке" loading="lazy">
+        </button>
+        <button class="gallery-item" type="button" data-full="gallery/photo3.jpg" data-caption="мы вдвоём">
+          <img src="gallery/photo3.jpg" alt="Мы вдвоём" loading="lazy">
+        </button>
+        <button class="gallery-item" type="button" data-full="gallery/photo4.jpg" data-caption="просто ты">
+          <img src="gallery/photo4.jpg" alt="Майнура" loading="lazy">
+        </button>
+        <button class="gallery-item" type="button" data-full="gallery/photo5.jpg" data-caption="это тоже я, да :)">
+          <img src="gallery/photo5.jpg" alt="Я" loading="lazy">
+          <span class="egg-dot egg-dot-gallery" data-egg="gallery"></span>
+        </button>
+      </div>
+
+      <div class="constellation-wrap" id="constellationView" style="display:none;">
+        <canvas id="constellationCanvas"></canvas>
+        <button class="star-point" type="button" style="left:32%;top:16%;" data-full="gallery/photo1.jpg" data-caption="тёплый вечер">
+          <img src="gallery/photo1.jpg" alt="Майнура" loading="lazy">
+        </button>
+        <button class="star-point" type="button" style="left:70%;top:18%;" data-full="gallery/photo2.jpg" data-caption="наши прогулки">
+          <img src="gallery/photo2.jpg" alt="Мы вдвоём на прогулке" loading="lazy">
+        </button>
+        <button class="star-point" type="button" style="left:14%;top:48%;" data-full="gallery/photo3.jpg" data-caption="мы вдвоём">
+          <img src="gallery/photo3.jpg" alt="Мы вдвоём" loading="lazy">
+        </button>
+        <button class="star-point" type="button" style="left:86%;top:48%;" data-full="gallery/photo4.jpg" data-caption="просто ты">
+          <img src="gallery/photo4.jpg" alt="Майнура" loading="lazy">
+        </button>
+        <button class="star-point" type="button" style="left:50%;top:84%;" data-full="gallery/photo5.jpg" data-caption="это тоже я, да :)">
+          <img src="gallery/photo5.jpg" alt="Я" loading="lazy">
+        </button>
+      </div>
+    </section>
+
+    <div class="memory-divider walk" aria-hidden="true"></div>
+
+    <section class="quest-section">
+      <p class="beat-label" style="text-align:center;">проверка</p>
+      <h2 style="display:block; text-align:center; margin-bottom:14px;">Ты точно моя?</h2>
+      <p class="finale-intro" style="margin-bottom:40px;">Пять вопросов, ответы на которые знаешь только ты. Пройди все — и я открою тебе один секретный факт о себе.</p>
+
+      <form id="questForm" class="quest-form">
+        <div id="questQuestions"></div>
+        <button type="submit" class="quest-submit">Проверить</button>
+      </form>
+
+      <p class="quest-result" id="questResult"></p>
+      <button type="button" class="quest-more quest-new" id="questNew">Новая пятёрка</button>
+
+      <div class="quest-reward" id="questReward">
+        <p class="beat-label">секретный факт</p>
+        <p class="quest-fact" id="questFact"></p>
+        <button type="button" class="quest-more" id="questMore">Хочу ещё один факт</button>
+      </div>
+    </section>
+
+    <section class="ask-section">
+      <p class="beat-label" style="text-align:center;">спроси</p>
+      <h2 style="display:block; text-align:center; margin-bottom:14px;">Спроси меня</h2>
+      <p class="finale-intro" style="margin-bottom:30px;">Напиши сюда что угодно — про нас, про меня, про что хочешь. Отвечу так, как ответил бы вживую.</p>
+
+      <div class="ask-chat">
+        <div class="ask-messages" id="askMessages">
+          <div class="ask-msg bot">Привет. Спроси меня о чём хочешь — я тут.</div>
+        </div>
+        <p class="ask-typing" id="askTyping">печатает…</p>
+        <form id="askForm" class="ask-form">
+          <input type="text" id="askInput" class="ask-input" placeholder="напиши вопрос…" autocomplete="off">
+          <button type="submit" class="ask-send">Спросить</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="scratch-section">
+      <p class="beat-label" style="text-align:center;">сотри</p>
+      <h2 style="display:block; text-align:center; margin-bottom:14px;">Сотри и узнай</h2>
+      <p class="finale-intro" style="margin-bottom:30px;">Под этим слоем спрятано ещё одно маленькое признание. Проведи пальцем, чтобы стереть его.</p>
+
+      <div class="scratch-card" id="scratchCard">
+        <div class="scratch-reveal">Ты — единственный человек, ради которого я готов переписать всю свою жизнь с нуля и ни разу не пожалеть об этом.</div>
+        <canvas class="scratch-canvas" id="scratchCanvas"></canvas>
+      </div>
+      <p class="scratch-hint">проведи пальцем по карточке</p>
+    </section>
+
+    <section class="daisy-section">
+      <p class="beat-label" style="text-align:center;">погадаем?</p>
+      <h2 style="display:block; text-align:center; margin-bottom:14px;">Любит — не любит</h2>
+      <p class="finale-intro" style="margin-bottom:26px;">Сорви все лепестки — и узнай то, что и так уже знаешь.</p>
+      <div class="daisy-wrap" id="daisyWrap">
+        <div class="daisy-core"></div>
+      </div>
+      <p class="daisy-label" id="daisyLabel">любит</p>
+      <button class="quest-more" id="daisyReset" type="button">сначала</button>
+    </section>
+
+    <section class="catch-section">
+      <p class="beat-label" style="text-align:center;">игра</p>
+      <h2 style="display:block; text-align:center; margin-bottom:14px;">Лови сердечки</h2>
+      <p class="finale-intro" style="margin-bottom:24px;">20 секунд. Двигай корзину мышкой или пальцем и лови только сердечки — крестики отнимают время.</p>
+      <div class="catch-wrap" id="catchWrap">
+        <canvas id="catchCanvas"></canvas>
+        <div class="catch-hud">
+          <span id="catchScore">Счёт: 0</span>
+          <span id="catchTime">20с</span>
+        </div>
+      </div>
+      <button class="quest-more catch-start" id="catchStart" type="button">Начать</button>
+      <p class="catch-result" id="catchResult"></p>
+    </section>
+
+    <section class="puzzle-section">
+      <p class="beat-label" style="text-align:center;">собери</p>
+      <h2 style="display:block; text-align:center; margin-bottom:14px;">Собери разбитое сердце</h2>
+      <p class="finale-intro" style="margin-bottom:30px;">Перетащи каждый осколок к центру — туда, где ему и место. Когда сердце снова станет целым, откроется последнее сообщение.</p>
+
+      <div class="puzzle-wrap" id="puzzleWrap">
+        <svg id="puzzleSvg" viewBox="0 0 300 300" width="100%" height="100%" style="overflow:visible;">
+          <defs>
+            <linearGradient id="heartGrad" x1="0" y1="0" x2="300" y2="300" gradientUnits="userSpaceOnUse">
+              <stop offset="0%" stop-color="#e2536b"/>
+              <stop offset="55%" stop-color="#c81d38"/>
+              <stop offset="100%" stop-color="#b8935a"/>
+            </linearGradient>
+          </defs>
+          <g id="puzzlePieces"></g>
+        </svg>
+      </div>
+      <p class="puzzle-hint" id="puzzleHint">перетаскивай осколки к центру</p>
+      <p class="puzzle-message" id="puzzleMessage">Как и это сердце — оно снова целое, только когда мы вместе. Я люблю тебя, Майнура.</p>
+    </section>
+
+    <section class="rules-section">
+      <p class="beat-label" style="text-align:center;">наш договор</p>
+      <h2 style="display:block; text-align:center; margin-bottom:14px;">Наши правила</h2>
+      <p class="finale-intro" style="margin-bottom:30px;">Не клятва, а несколько вещей, которые я хочу, чтобы мы держали всегда. Нажми на каждую — как подпись.</p>
+      <div class="rules-list" id="rulesList"></div>
+    </section>
+
+    <div class="memory-divider promise" aria-hidden="true"></div>
+
+    <section class="finale">
+      <p class="beat-label" style="text-align:center">что дальше</p>
+      <h2 style="display:block; text-align:center; margin-bottom:24px;">Мы обязательно поженимся</h2>
+      <p class="finale-intro">Дальше — самое важное. Слова, которые проще написать, чем сказать вслух. Открой письмо.</p>
+
+      <div class="envelope" id="envelope" role="button" tabindex="0" aria-expanded="false" aria-label="Открыть письмо">
+        <div class="envelope-flap"></div>
+        <div class="envelope-face">
+          <span class="envelope-label">открыть письмо</span>
+        </div>
+        <div class="letter" id="letterText">
+          <span class="letter-seal" aria-hidden="true"></span>
+          <p>Майнура, я не обещаю идеальных дней — их не бывает ни у кого. Но обещаю одно: однажды ты станешь моей женой. И это не громкие слова, а решение, которое я принял ещё тогда, на улице у школы, сам того не понимая.</p>
+          <p>А пока просто будь рядом, как в эти сто дней. Я дорожу тобой больше, чем умею показывать словами — и, возможно, в этом весь смысл: не в словах, а в том, что я продолжаю выбирать тебя каждый день.</p>
+          <p class="sign">Твой, навсегда.</p>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <button class="secret-trigger" id="secretTrigger" type="button" aria-label="секрет">♥</button>
+
+  <div class="lightbox" id="lightbox">
+    <button class="lightbox-close" id="lightboxClose" type="button" aria-label="Закрыть">×</button>
+    <figure class="lightbox-figure">
+      <img id="lightboxImg" src="" alt="">
+      <figcaption id="lightboxCaption"></figcaption>
+    </figure>
+  </div>
+
+  <div class="secret-overlay" id="secretOverlay">
+    <div class="secret-box">
+      <button class="secret-close" id="secretClose" type="button" aria-label="Закрыть">×</button>
+      <p class="beat-label" id="secretLabel">пасхалка 1 из 10</p>
+      <h2 id="secretTitle">Моё маленькое секретное послание</h2>
+      <div id="secretText"></div>
+    </div>
+  </div>
+
+  <footer>сделано с любовью — и одной красной нитью<br><span class="footer-hint">P.S. где-то на этой странице спряталось 10 моих маленьких посланий<span class="egg-dot" data-egg="footer">...</span></span></footer>
+
+  <div class="hidden-bottom" id="hiddenBottom">
+    <p class="beat-label" style="text-align:center;">ты долистала до самого конца</p>
+    <p class="hidden-bottom-text">Значит, тебе правда не всё равно. Спасибо, что дочитала — вся эта страница ради одной простой мысли: я люблю тебя, Майнура, и хочу, чтобы ты знала это в каждой мелочи, даже спрятанной.</p>
+  </div>
+
+<script>
+  // story tabs: reveal one topic at a time, on demand
+  const tabButtons = document.querySelectorAll('.tab-btn');
+  const tabPanels = document.querySelectorAll('.tab-panel');
+  const storyEmpty = document.getElementById('storyEmpty');
+
+  tabButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const target = btn.dataset.tab;
+      const alreadyActive = btn.classList.contains('active');
+
+      tabButtons.forEach(b => { b.classList.remove('active'); b.setAttribute('aria-selected', 'false'); });
+      tabPanels.forEach(p => p.classList.remove('active', 'in-view'));
+
+      if(alreadyActive){
+        storyEmpty.classList.remove('hidden');
+        return;
+      }
+
+      btn.classList.add('active');
+      btn.setAttribute('aria-selected', 'true');
+      storyEmpty.classList.add('hidden');
+
+      const panel = document.querySelector('.tab-panel[data-tab="' + target + '"]');
+      if(panel){
+        panel.classList.add('active');
+        requestAnimationFrame(() => panel.classList.add('in-view'));
+        panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    });
+  });
+
+  // envelope open/close
+  const envelope = document.getElementById('envelope');
+
+  function spawnSparks(container){
+    const count = 9;
+    for(let i=0;i<count;i++){
+      const s = document.createElement('span');
+      s.className = 'spark';
+      const angle = (Math.PI * 2 * i) / count + Math.random()*0.4;
+      const dist = 60 + Math.random()*70;
+      s.style.setProperty('--dx', (Math.cos(angle)*dist).toFixed(1) + 'px');
+      s.style.setProperty('--dy', (Math.sin(angle)*dist).toFixed(1) + 'px');
+      s.style.animationDelay = (Math.random()*0.15).toFixed(2) + 's';
+      container.appendChild(s);
+      s.addEventListener('animationend', () => s.remove());
+    }
+  }
+
+  function toggleEnvelope(){
+    const open = envelope.classList.toggle('open');
+    envelope.setAttribute('aria-expanded', open);
+    if(open){
+      // spread the particle bursts out instead of firing 20+ animated elements
+      // in the exact same frame the flap + letter transitions kick off — that
+      // pile-up was a big part of the stutter on open
+      requestAnimationFrame(() => spawnSparks(envelope));
+      setTimeout(() => releaseHearts(envelope.getBoundingClientRect(), 6), 200);
+      // wait for the letter's own max-height expand transition (.8s) to finish
+      // before typing starts — typing mid-expand used to double up reflow work
+      setTimeout(typeLetter, 850);
+    }
+  }
+  envelope.addEventListener('click', toggleEnvelope);
+  envelope.addEventListener('keydown', (e) => {
+    if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); toggleEnvelope(); }
+  });
+
+  // type the letter out live, the first time the envelope opens
+  let letterTyped = false;
+  function typeLetter(){
+    if(letterTyped) return;
+    letterTyped = true;
+    const paras = Array.from(document.querySelectorAll('#letterText p'));
+    const originals = paras.map(p => p.textContent);
+    paras.forEach(p => p.textContent = '');
+
+    let idx = 0;
+    function typeNext(){
+      if(idx >= paras.length) return;
+      const el = paras[idx];
+      const text = originals[idx];
+      const isSign = el.classList.contains('sign');
+      const speed = isSign ? 55 : 20;
+      let charIdx = 0;
+      el.classList.add('typing');
+      const interval = setInterval(() => {
+        charIdx++;
+        el.textContent = text.slice(0, charIdx);
+        if(charIdx >= text.length){
+          clearInterval(interval);
+          el.classList.remove('typing');
+          idx++;
+          setTimeout(typeNext, isSign ? 0 : 400);
+        }
+      }, speed);
+    }
+    typeNext();
+  }
+
+  // visit counter, remembered per browser
+  (function trackVisits(){
+    function pluralRu(n, one, few, many){
+      const mod10 = n % 10, mod100 = n % 100;
+      if(mod10 === 1 && mod100 !== 11) return one;
+      if(mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return few;
+      return many;
+    }
+    try{
+      const stored = localStorage.getItem('mainuraVisits');
+      const count = stored ? parseInt(stored, 10) + 1 : 1;
+      localStorage.setItem('mainuraVisits', count);
+      if(count > 1){
+        const word = pluralRu(count, 'раз', 'раза', 'раз');
+        const badge = document.getElementById('visitBadge');
+        badge.textContent = 'ты здесь уже ' + count + ' ' + word;
+        setTimeout(() => badge.classList.add('show'), 1900);
+      }
+    } catch(err){ /* private browsing — just skip it */ }
+  })();
+
+  // photo gallery: reveal on scroll + lightbox
+  const galleryItems = document.querySelectorAll('.gallery-item');
+  const galleryIO = new IntersectionObserver((entries) => {
+    entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('in-view'); });
+  }, { threshold: 0.2 });
+  galleryItems.forEach(item => galleryIO.observe(item));
+
+  const lightbox = document.getElementById('lightbox');
+  const lightboxImg = document.getElementById('lightboxImg');
+  const lightboxCaption = document.getElementById('lightboxCaption');
+  const lightboxClose = document.getElementById('lightboxClose');
+
+  function openLightbox(src, caption){
+    lightboxImg.src = src;
+    lightboxImg.alt = caption || '';
+    lightboxCaption.textContent = caption || '';
+    lightbox.classList.add('show');
+  }
+  function closeLightbox(){
+    lightbox.classList.remove('show');
+  }
+
+  galleryItems.forEach(item => {
+    item.addEventListener('click', () => {
+      openLightbox(item.dataset.full, item.dataset.caption);
+    });
+  });
+  lightboxClose.addEventListener('click', closeLightbox);
+  lightbox.addEventListener('click', (e) => { if(e.target === lightbox) closeLightbox(); });
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeLightbox(); });
+
+  // ---------- 10 hidden easter eggs ----------
+  const secretOverlay = document.getElementById('secretOverlay');
+  const secretClose = document.getElementById('secretClose');
+  const secretLabel = document.getElementById('secretLabel');
+  const secretTitle = document.getElementById('secretTitle');
+  const secretText = document.getElementById('secretText');
+
+  const EGGS = {
+    heart: {
+      title: 'Моё маленькое секретное послание',
+      html: '<p>Если ты это читаешь — значит, ты заметила то, что почти невозможно заметить. Так же, как в тот вечер на улице у школы: с первого взгляда мало кто замечает по-настоящему важное. А ты заметила. Как и тогда.</p><p>Спасибо, что не побоялась поискать. Люблю тебя, Майнура — по-настоящему, без громких слов, просто по-честному.</p>'
+    },
+    hero: {
+      title: 'Ты нашла точку у самого имени',
+      html: '<p>Именно отсюда всё началось — с твоего имени. Я мог бы написать сайт про что угодно, но написал про тебя, потому что ни одна другая тема не казалась мне важнее.</p>'
+    },
+    title3: {
+      title: 'Ты трижды нажала на «Майнура»',
+      html: '<p>А я твоё имя мысленно повторяю гораздо чаще трёх раз в день. Считай это честным признанием.</p>'
+    },
+    number3: {
+      title: 'Больше, чем сто',
+      html: '<p>Сто дней уже позади. А это — маленькое обещание, что дальше будет двести, потом тысяча, и мы всё ещё будем считать вместе.</p>'
+    },
+    gallery: {
+      title: 'Бонусный кадр',
+      html: '<p>Это фото я оставил здесь просто потому, что оно делает меня немного смешным — а с тобой мне не стыдно быть таким. Это тоже часть того, что я люблю в наших отношениях: с тобой не нужно быть серьёзным всё время.</p>'
+    },
+    typed: {
+      title: 'Ты написала это слово',
+      html: '<p>«Люблю» — простое слово, но в нём умещается всё остальное, что я пытался сказать этим сайтом. Спасибо, что напечатала его — даже просто ради пасхалки.</p>'
+    },
+    progress: {
+      title: 'Ты нашла полоску сверху',
+      html: '<p>Эта тонкая линия показывает, сколько ты уже прочитала. Но она же — метафора: мы тоже где-то в процессе, ещё не в конце. И это самое интересное — идти дальше вместе.</p>'
+    },
+    footer: {
+      title: 'Ты кликнула на многоточие',
+      html: '<p>Ты умеешь находить смысл там, где другие видят просто три точки. За это я тебя тоже люблю.</p>'
+    },
+    konami: {
+      title: 'Секретный код найден',
+      html: '<p>Если ты это увидела — либо ты гений, либо просто нажимала на всё подряд от скуки. В любом случае: привет, я тебя люблю, и да, я потратил на это слишком много времени. Ради тебя — не жалко.</p>'
+    }
+  };
+
+  function markFound(id){
+    let found = [];
+    try{ found = JSON.parse(localStorage.getItem('mainuraEggs') || '[]'); } catch(e){}
+    if(!found.includes(id)) found.push(id);
+    try{ localStorage.setItem('mainuraEggs', JSON.stringify(found)); } catch(e){}
+    return found.length;
+  }
+
+  function revealEgg(id){
+    const count = markFound(id);
+    const egg = EGGS[id];
+    if(!egg) return;
+    secretLabel.textContent = 'пасхалка ' + count + ' из 10';
+    secretTitle.textContent = egg.title;
+    secretText.innerHTML = egg.html;
+    secretOverlay.classList.add('show');
+  }
+
+  function closeSecret(){ secretOverlay.classList.remove('show'); }
+  secretClose.addEventListener('click', closeSecret);
+  secretOverlay.addEventListener('click', (e) => { if(e.target === secretOverlay) closeSecret(); });
+  document.addEventListener('keydown', (e) => { if(e.key === 'Escape') closeSecret(); });
+
+  // egg 1 — the corner heart
+  const secretTrigger = document.getElementById('secretTrigger');
+  secretTrigger.addEventListener('click', () => {
+    revealEgg('heart');
+    releaseHearts(secretTrigger.getBoundingClientRect(), 12);
+  });
+
+  // egg 2 — dot next to the hero title
+  document.querySelectorAll('[data-egg="hero"]').forEach(el => {
+    el.addEventListener('click', (e) => { e.stopPropagation(); revealEgg('hero'); });
+  });
+
+  // egg 3 — triple-click the title itself
+  (function(){
+    const heroTitleEl = document.getElementById('heroTitle');
+    let clicks = 0, timer = null;
+    heroTitleEl.addEventListener('click', () => {
+      clicks++;
+      clearTimeout(timer);
+      timer = setTimeout(() => { clicks = 0; }, 900);
+      if(clicks >= 3){ clicks = 0; revealEgg('title3'); }
+    });
+  })();
+
+  // egg 4 — triple-click the "100"
+  (function(){
+    const num = document.getElementById('bigNumber');
+    if(!num) return;
+    let clicks = 0, timer = null;
+    num.addEventListener('click', () => {
+      clicks++;
+      clearTimeout(timer);
+      timer = setTimeout(() => { clicks = 0; }, 900);
+      if(clicks >= 3){ clicks = 0; revealEgg('number3'); }
+    });
+  })();
+
+  // egg 5 — dot hidden on the last gallery photo
+  document.querySelectorAll('[data-egg="gallery"]').forEach(el => {
+    el.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); revealEgg('gallery'); });
+  });
+
+  // egg 6 — typing "люблю" anywhere on the page
+  (function(){
+    let buffer = '';
+    document.addEventListener('keydown', (e) => {
+      if(e.key.length !== 1) return;
+      buffer = (buffer + e.key.toLowerCase()).slice(-10);
+      if(buffer.includes('люблю')){ buffer = ''; revealEgg('typed'); }
+    });
+  })();
+
+  // egg 7 — clicking the thin scroll progress bar
+  const scrollProgressEl = document.getElementById('scrollProgress');
+  scrollProgressEl.addEventListener('click', () => revealEgg('progress'));
+
+  // egg 8 — dot inside the footer's "..."
+  document.querySelectorAll('[data-egg="footer"]').forEach(el => {
+    el.addEventListener('click', (e) => { e.stopPropagation(); revealEgg('footer'); });
+  });
+
+  // egg 9 — scrolling all the way to the very bottom of the page
+  const hiddenBottom = document.getElementById('hiddenBottom');
+  const bottomIO = new IntersectionObserver((entries) => {
+    entries.forEach(e => {
+      if(e.isIntersecting){
+        hiddenBottom.classList.add('in-view');
+        markFound('bottom');
+      }
+    });
+  }, { threshold: 0.4 });
+  bottomIO.observe(hiddenBottom);
+
+  // egg 10 — a classic key sequence
+  (function(){
+    const sequence = ['ArrowUp','ArrowUp','ArrowDown','ArrowDown','ArrowLeft','ArrowRight','ArrowLeft','ArrowRight'];
+    let pos = 0;
+    document.addEventListener('keydown', (e) => {
+      if(e.key === sequence[pos]){
+        pos++;
+        if(pos === sequence.length){ pos = 0; revealEgg('konami'); }
+      } else {
+        pos = (e.key === sequence[0]) ? 1 : 0;
+      }
+    });
+  })();
+
+  // cursor glow + hero tilt — desktop mouse only (skips touch entirely, this was
+  // the main source of jank: it used to fire on every touch move on mobile too)
+  const isFinePointer = window.matchMedia && window.matchMedia('(pointer: fine)').matches;
+
+  if(isFinePointer){
+    const cursorGlow = document.getElementById('cursorGlow');
+    let glowActive = false;
+    let glowPending = false, glowX = 0, glowY = 0;
+    window.addEventListener('pointermove', (e) => {
+      glowX = e.clientX; glowY = e.clientY;
+      if(!glowPending){
+        glowPending = true;
+        requestAnimationFrame(() => {
+          cursorGlow.style.setProperty('--x', glowX + 'px');
+          cursorGlow.style.setProperty('--y', glowY + 'px');
+          if(!glowActive){ cursorGlow.classList.add('active'); glowActive = true; }
+          glowPending = false;
+        });
+      }
+    }, { passive: true });
+    window.addEventListener('pointerleave', () => {
+      cursorGlow.classList.remove('active');
+      glowActive = false;
+    });
+
+    // gentle tilt on the hero title following the cursor
+    const heroTitle = document.querySelector('.hero h1');
+    const hero = document.querySelector('.hero');
+    if(heroTitle && hero){
+      let tiltPending = false, tiltX = 0, tiltY = 0;
+      hero.addEventListener('pointermove', (e) => {
+        const rect = hero.getBoundingClientRect();
+        tiltX = (e.clientX - rect.left) / rect.width - 0.5;
+        tiltY = (e.clientY - rect.top) / rect.height - 0.5;
+        if(!tiltPending){
+          tiltPending = true;
+          requestAnimationFrame(() => {
+            heroTitle.style.transform = `rotateX(${(-tiltY*6).toFixed(2)}deg) rotateY(${(tiltX*8).toFixed(2)}deg)`;
+            tiltPending = false;
+          });
+        }
+      }, { passive: true });
+      hero.addEventListener('pointerleave', () => {
+        heroTitle.style.transform = 'rotateX(0deg) rotateY(0deg)';
+      });
+    }
+
+    // subtle 3D tilt on the envelope card, desktop only
+    const envelopeEl = document.getElementById('envelope');
+    const envelopeFace = envelopeEl ? envelopeEl.querySelector('.envelope-face') : null;
+    if(envelopeEl && envelopeFace){
+      let envPending = false, envX = 0, envY = 0;
+      envelopeEl.addEventListener('pointermove', (e) => {
+        if(envelopeEl.classList.contains('open')) return;
+        const rect = envelopeEl.getBoundingClientRect();
+        envX = (e.clientX - rect.left) / rect.width - 0.5;
+        envY = (e.clientY - rect.top) / rect.height - 0.5;
+        if(!envPending){
+          envPending = true;
+          requestAnimationFrame(() => {
+            envelopeFace.style.transform = `rotateX(${(-envY*10).toFixed(2)}deg) rotateY(${(envX*14).toFixed(2)}deg)`;
+            envPending = false;
+          });
+        }
+      }, { passive: true });
+      envelopeEl.addEventListener('pointerleave', () => {
+        envelopeFace.style.transform = 'rotateX(0deg) rotateY(0deg)';
+      });
+    }
+  }
+
+  // scroll progress bar
+  const scrollProgress = document.getElementById('scrollProgress');
+  function updateScrollProgress(){
+    const h = document.documentElement;
+    const scrolled = h.scrollTop;
+    const max = h.scrollHeight - h.clientHeight;
+    const pct = max > 0 ? (scrolled / max) * 100 : 0;
+    scrollProgress.style.width = pct + '%';
+  }
+  window.addEventListener('scroll', updateScrollProgress, { passive: true });
+  updateScrollProgress();
+
+  // little hearts released from a point (used by the envelope, and lightly on click)
+  const heartBurst = document.getElementById('heartBurst');
+  function releaseHearts(originRect, count){
+    const originX = originRect.left + originRect.width / 2;
+    const originY = originRect.top + originRect.height / 2;
+    for(let i=0;i<count;i++){
+      const h = document.createElement('span');
+      h.textContent = Math.random() > 0.5 ? '♥' : '♡';
+      const angle = Math.random() * Math.PI - Math.PI/2 - Math.PI/2; // upward spread
+      const dist = 90 + Math.random()*120;
+      const hx = (Math.cos(angle) * dist * 0.6).toFixed(0) + 'px';
+      const hy = (-Math.abs(Math.sin(angle) * dist) - 60).toFixed(0) + 'px';
+      h.style.left = originX + 'px';
+      h.style.top = originY + 'px';
+      h.style.setProperty('--hx', hx);
+      h.style.setProperty('--hy', hy);
+      h.style.setProperty('--hr', (Math.random()*60-30).toFixed(0) + 'deg');
+      h.style.animationDelay = (Math.random()*0.2).toFixed(2) + 's';
+      heartBurst.appendChild(h);
+      h.addEventListener('animationend', () => h.remove());
+    }
+  }
+
+  // a soft heart on double-click, anywhere on the page — a little easter egg
+  document.addEventListener('dblclick', (e) => {
+    releaseHearts({ left: e.clientX, top: e.clientY, width: 0, height: 0 }, 6);
+  });
+
+  // background music toggle
+  const bgAudio = document.getElementById('bgAudio');
+  const musicToggle = document.getElementById('musicToggle');
+  const musicLabel = musicToggle.querySelector('.music-label');
+  bgAudio.volume = 0.55;
+
+  function setMusicUI(playing){
+    musicToggle.classList.toggle('playing', playing);
+    musicToggle.setAttribute('aria-pressed', playing);
+    musicToggle.setAttribute('aria-label', playing ? 'Выключить музыку' : 'Включить музыку');
+    musicLabel.textContent = playing ? 'звучит' : 'музыка';
+  }
+
+  musicToggle.addEventListener('click', () => {
+    if(bgAudio.paused){
+      bgAudio.play().then(() => setMusicUI(true)).catch(() => setMusicUI(false));
+    } else {
+      bgAudio.pause();
+      setMusicUI(false);
+    }
+  });
+
+  // ---------- quest: a rotating set of five questions ----------
+  const FACTS = [
+    'Я люблю Майнуру.',
+    'Когда мне было 13–14 лет, я сломал нос об асфальт — и он до сих пор немного кривой.',
+    'Люблю сигареты Caster+.',
+    'У меня есть зависимость — и это ты.',
+    'Моё увлечение — сидеть и программировать.',
+    'Хочу переехать в Америку навсегда.',
+    'Умею готовить просто идеальное спагетти.',
+    'Занимался ММА два года и три месяца.',
+    'Я программист, поэтому привык превращать сложные задачи в понятный код. Но дома моя главная роль — шеф-повар для Майнуры. Видеть, как близкий человек с удовольствием ест то, что я приготовил, — лучший фидбэк в жизни.',
+    'Я спокоен как удав, даже когда вокруг может быть конец света.',
+    'Моё сердце занято раз и навсегда — я очень люблю Майнуру и безумно ею горжусь.',
+    'Даже если я чего-то не понимаю — например, в косметике или сериалах, — я всегда с интересом выслушаю Майнуру, потому что мне важно всё, что важно ей.',
+    'Для меня искренне важны её мысли, переживания и рассказы о том, как прошёл день. Я умею не просто слушать, но и слышать.',
+    'Моя цель — чтобы рядом со мной Майнура чувствовала себя в полной безопасности, защищённой от внешних стрессов и проблем.',
+    'Видеть её улыбку — мой лучший дофамин и мотивация развиваться, зарабатывать больше и становиться лучше каждый день.',
+    'Люблю носить спортивные вещи: рашгарды и всё в этом духе.',
+    'Я думаю о тебе каждый день.',
+    'Не было ни дня, когда бы я о тебе не думал.',
+    'Когда-то я был популярным в РФ под ником MRX и помогал людям как «чёрная шляпа».',
+    'Я твой.'
+  ];
+
+  const QUESTIONS = [
+    { id:'mrx', text:'Кто твой любимый человек (не по родне)?', hint:'Это не имя в паспорте, а имя из прошлого в сети.', check:v => v.includes('mrx') || v.includes('мрх') },
+    { id:'kiss', text:'Когда я первый раз тебя поцеловал?', hint:'Вспомни вкладку про ночь и решительность.', check:v => v.includes('27') && v.includes('август') },
+    { id:'days', text:'Сколько дней прошло с начала нашего общения?', hint:'Эта цифра уже появлялась на сайте крупным шрифтом.', check:v => v.includes('100') },
+    { id:'cigarettes', text:'Какие сигареты мои любимые?', hint:'Ответ обычно можно увидеть на пачке.', check:v => v.includes('caster') || v.includes('кастер') },
+    { id:'lips', text:'Чьи губы мои любимые?', hint:'Это имя уже встречалось здесь почти в каждой истории.', check:v => v.includes('майнур') },
+    { id:'waist', text:'Чья талия мне нравится больше любой другой?', hint:'Ответ совсем рядом, просто подумай о том, для кого написан сайт.', check:v => v.includes('майнур') },
+    { id:'plans', text:'Какие у меня планы на тебя?', hint:'Это не про следующую прогулку, а про очень далёкое «мы».', check:v => v.includes('жен') || v.includes('свадьб') || v.includes('брак') },
+    { id:'son', text:'Как я хочу назвать сына?', hint:'Короткое имя, которое звучит уверенно.', check:v => v.includes('марк') },
+    { id:'daughter', text:'Как я хочу назвать дочку?', hint:'Это имя — причина, по которой существует весь этот сайт.', check:v => v.includes('майнур') },
+    { id:'move', text:'Куда я хочу уехать?', hint:'Выбирай не город и не штат, а целую страну.', options:['Бруклин','Штат Теннесси','Лос-Анджелес','Аляска','Просто в Америку'], answer:'Просто в Америку' },
+    { id:'meaning', text:'Что означает имя MRX?', hint:'Вспомни героя, который не сдался, даже когда всё было против него.', check:v => v.includes('лучший') && v.includes('програм') && v.includes('сда') },
+    { id:'phone', text:'Какую компанию телефонов и модель я люблю больше всего?', hint:'У этой компании есть фраза Never Settle.', check:v => (v.includes('oneplus') || v.includes('ванплас')) && v.includes('12') }
+  ];
+
+  const questForm = document.getElementById('questForm');
+  const questQuestions = document.getElementById('questQuestions');
+  const questResult = document.getElementById('questResult');
+  const questReward = document.getElementById('questReward');
+  const questFact = document.getElementById('questFact');
+  const questMore = document.getElementById('questMore');
+  const questNew = document.getElementById('questNew');
+  let activeQuestions = [];
+  let selectedAnswers = {};
+  let questShown = [];
+
+  function normalizeQuest(str){
+    return String(str || '').trim().toLowerCase().replace(/ё/g, 'е');
+  }
+
+  function shuffle(items){
+    const copy = [...items];
+    for(let i = copy.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }
+
+  function renderQuestions(){
+    activeQuestions = shuffle(QUESTIONS).slice(0, 5);
+    selectedAnswers = {};
+    questQuestions.innerHTML = activeQuestions.map((question, index) => {
+      const answer = question.options
+        ? '<div class="quest-options" data-question="' + question.id + '">' + question.options.map(option => '<button type="button" class="quest-opt" data-question="' + question.id + '" data-value="' + option + '">' + option + '</button>').join('') + '</div>'
+        : '<input type="text" class="quest-input" data-question="' + question.id + '" placeholder="ответ" autocomplete="off">';
+      return '<div class="quest-q"><p class="quest-question">' + (index + 1) + '. ' + question.text + '</p>' + answer + '<button type="button" class="quest-hint-btn" data-hint="' + question.id + '">подсказка</button><p class="quest-hint" data-hint="' + question.id + '">' + question.hint + '</p></div>';
+    }).join('');
+
+    questQuestions.querySelectorAll('.quest-opt').forEach(button => {
+      button.addEventListener('click', () => {
+        questQuestions.querySelectorAll('.quest-opt[data-question="' + button.dataset.question + '"]').forEach(item => item.classList.remove('selected'));
+        button.classList.add('selected');
+        selectedAnswers[button.dataset.question] = button.dataset.value;
+      });
+    });
+
+    questQuestions.querySelectorAll('.quest-hint-btn').forEach(button => {
+      button.addEventListener('click', () => {
+        const hint = questQuestions.querySelector('.quest-hint[data-hint="' + button.dataset.hint + '"]');
+        if(hint) hint.classList.toggle('show');
+      });
+    });
+  }
+
+  function pickFact(){
+    let pool = FACTS.map((_, i) => i).filter(i => !questShown.includes(i));
+    if(pool.length === 0){ questShown = []; pool = FACTS.map((_, i) => i); }
+    const idx = pool[Math.floor(Math.random() * pool.length)];
+    questShown.push(idx);
+    return FACTS[idx];
+  }
+
+  function startNewRound(){
+    renderQuestions();
+    questResult.textContent = '';
+    questReward.classList.remove('show');
+    questForm.style.display = '';
+  }
+
+  questForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    let correct = 0;
+    activeQuestions.forEach(question => {
+      const value = question.options
+        ? normalizeQuest(selectedAnswers[question.id])
+        : normalizeQuest(questQuestions.querySelector('.quest-input[data-question="' + question.id + '"]').value);
+      const isCorrect = question.options ? value === normalizeQuest(question.answer) : question.check(value);
+      if(isCorrect) correct++;
+    });
+
+    if(correct === activeQuestions.length){
+      questResult.textContent = '';
+      questFact.textContent = pickFact();
+      questReward.classList.add('show');
+      questForm.style.display = 'none';
+      releaseHearts(questReward.getBoundingClientRect(), 14);
+    } else {
+      questResult.textContent = 'Правильных ответов: ' + correct + ' из ' + activeQuestions.length + ' — попробуй ещё раз.';
+      questReward.classList.remove('show');
+    }
+  });
+
+  questMore.addEventListener('click', () => { questFact.textContent = pickFact(); });
+  questNew.addEventListener('click', startNewRound);
+  startNewRound();
+
+  // welcome screen, then the password gate
+  (function(){
+    const introScreen = document.getElementById('introScreen');
+    const siteGate = document.getElementById('siteGate');
+    const gateForm = document.getElementById('gateForm');
+    const gateInput = document.getElementById('gateInput');
+    const gateError = document.getElementById('gateError');
+    const gateHintBtn = document.getElementById('gateHintBtn');
+    const gateHint = document.getElementById('gateHint');
+    const PASSWORD = 'чипсы с крабом';
+
+    gateHintBtn.addEventListener('click', () => gateHint.classList.toggle('show'));
+
+    function normalize(str){
+      return str.trim().toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ');
+    }
+
+    let unlocked = false;
+    try{ unlocked = localStorage.getItem('mainuraUnlocked') === '1'; } catch(e){}
+
+    document.body.classList.add('gate-lock');
+    if(unlocked){ siteGate.classList.add('hide'); }
+
+    function hideIntro(){
+      if(introScreen.classList.contains('hide')) return;
+      introScreen.classList.add('hide');
+      if(unlocked){
+        document.body.classList.remove('gate-lock');
+      } else {
+        setTimeout(() => gateInput.focus(), 400);
+      }
+    }
+
+    introScreen.addEventListener('click', hideIntro);
+    setTimeout(hideIntro, 6500);
+
+    gateForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if(normalize(gateInput.value) === normalize(PASSWORD)){
+        siteGate.classList.add('hide');
+        document.body.classList.remove('gate-lock');
+        try{ localStorage.setItem('mainuraUnlocked', '1'); } catch(err){}
+      } else {
+        gateError.style.display = 'block';
+        gateInput.value = '';
+        gateInput.focus();
+        siteGate.classList.add('shake');
+        setTimeout(() => siteGate.classList.remove('shake'), 450);
+      }
+    });
+  })();
+
+  // ---------- gallery: constellation view ----------
+  (function(){
+    const gridBtn = document.querySelectorAll('.view-btn');
+    const gridView = document.getElementById('galleryGridView');
+    const starView = document.getElementById('constellationView');
+    if(!gridView || !starView) return;
+
+    gridBtn.forEach(btn => {
+      btn.addEventListener('click', () => {
+        gridBtn.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const view = btn.dataset.view;
+        gridView.style.display = view === 'grid' ? '' : 'none';
+        starView.style.display = view === 'constellation' ? '' : 'none';
+        if(view === 'constellation') startConstellation(); else stopConstellation();
+      });
+    });
+
+    starView.querySelectorAll('.star-point').forEach(btn => {
+      btn.addEventListener('click', () => openLightbox(btn.dataset.full, btn.dataset.caption));
+    });
+
+    const canvas = document.getElementById('constellationCanvas');
+    const ctx = canvas.getContext('2d');
+    const points = Array.from(starView.querySelectorAll('.star-point')).map(el => ({
+      x: parseFloat(el.style.left) / 100,
+      y: parseFloat(el.style.top) / 100
+    }));
+    const twinkles = Array.from({ length: 36 }, () => ({
+      x: Math.random(), y: Math.random(),
+      r: Math.random() * 1.5 + 0.4,
+      phase: Math.random() * Math.PI * 2,
+      speed: 0.5 + Math.random() * 1.1
+    }));
+
+    function resize(){
+      const rect = starView.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    let dashOffset = 0;
+    let rafId = null;
+    const order = [0, 2, 4, 3, 1, 0];
+
+    function draw(time){
+      const w = canvas.width, h = canvas.height;
+      ctx.clearRect(0, 0, w, h);
+
+      twinkles.forEach(t => {
+        const a = 0.22 + 0.5 * (0.5 + 0.5 * Math.sin(time * 0.001 * t.speed + t.phase));
+        ctx.beginPath();
+        ctx.fillStyle = 'rgba(244,233,220,' + a.toFixed(2) + ')';
+        ctx.arc(t.x * w, t.y * h, t.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      if(points.length === 5){
+        ctx.beginPath();
+        order.forEach((idx, i) => {
+          const p = points[idx];
+          const px = p.x * w, py = p.y * h;
+          if(i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        });
+        dashOffset -= 0.25;
+        ctx.setLineDash([6, 7]);
+        ctx.lineDashOffset = dashOffset;
+        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = 'rgba(226,83,107,.55)';
+        ctx.shadowColor = 'rgba(200,29,56,.5)';
+        ctx.shadowBlur = 6;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
+
+      rafId = requestAnimationFrame(draw);
+    }
+
+    // exposed on window so the toggle-view handler above can start/stop it —
+    // this used to run forever even while the constellation view was hidden,
+    // which was a constant, needless drain on every page view
+    window.startConstellation = function(){
+      resize();
+      if(rafId === null) rafId = requestAnimationFrame(draw);
+    };
+    window.stopConstellation = function(){
+      if(rafId !== null){ cancelAnimationFrame(rafId); rafId = null; }
+    };
+    document.addEventListener('visibilitychange', () => {
+      if(document.hidden) window.stopConstellation();
+      else if(starView.style.display !== 'none') window.startConstellation();
+    });
+  })();
+
+  // ---------- ask-me mini chat ----------
+  (function(){
+    const askForm = document.getElementById('askForm');
+    if(!askForm) return;
+    const askInput = document.getElementById('askInput');
+    const askMessages = document.getElementById('askMessages');
+    const askTyping = document.getElementById('askTyping');
+
+    const RESPONSES = [
+      { keywords: ['люб', 'чувств'], reply: 'Люблю тебя — не как фигуру речи, а как решение, которое принимаю каждый день заново.' },
+      { keywords: ['делаешь', 'чем занят', 'сейчас'], reply: 'Скорее всего думаю о тебе. Или пишу код. Часто это одновременно.' },
+      { keywords: ['скуча', 'соскуч'], reply: 'Всегда. Даже когда ты рядом.' },
+      { keywords: ['красив', 'краси'], reply: 'Ты самая красивая девушка, которую я видел — и это не комплимент, а факт.' },
+      { keywords: ['женит', 'свадьб', 'брак', 'замуж'], reply: 'Планирую на полном серьёзе. Дай мне только немного времени.' },
+      { keywords: ['сын', 'дочк', 'дет', 'имя реб'], reply: 'Марк, если сын. Майнура, если дочка. Уже придумал — задолго до того, как это стало реальным вопросом.' },
+      { keywords: ['америк', 'переезд'], reply: 'Хочу увезти тебя в Америку. Насовсем, не в отпуск.' },
+      { keywords: ['сигарет', 'caster', 'кастер'], reply: 'Caster+. Ты и так это знаешь.' },
+      { keywords: ['спагет', 'еда', 'готов', 'ужин'], reply: 'Спагетти — моё коронное блюдо. Готовлю его специально для тебя.' },
+      { keywords: ['груст', 'плохо', 'устал', 'тяжело'], reply: 'Иди сюда. Всё будет хорошо — я рядом, что бы ни случилось.' },
+      { keywords: ['зол', 'обид', 'ссор', 'прост'], reply: 'Прости меня. Я всегда выбираю вернуться, даже после самых сложных слов.' },
+      { keywords: ['нить', 'красн'], reply: 'Красная нить — это про нас. Она была задолго до этого сайта.' },
+      { keywords: ['mrx', 'мрх'], reply: 'MRX — это прошлое. Настоящее — это твой, навсегда.' },
+      { keywords: ['привет', 'здравств', 'хай'], reply: 'Привет, моя Майнура. Рад, что ты здесь.' },
+      { keywords: ['поцелу'], reply: '27 августа, два часа ночи. Помню каждую секунду.' },
+      { keywords: ['мма', 'спорт', 'рашгард'], reply: 'Два года и три месяца ММА — и до сих пор люблю спортивные вещи. Рашгарды особенно.' }
+    ];
+
+    const DEFAULTS = [
+      'Хороший вопрос. Если коротко — ответ почти всегда ты.',
+      'Не уверен, что знаю точный ответ, но точно знаю, что люблю тебя.',
+      'Спроси меня это вживую — отвечу с поцелуем.',
+      'Секрет. Но, кажется, ты и так знаешь ответ, если подумаешь.',
+      'Я подумаю над этим. А пока — просто знай, что ты моя.'
+    ];
+
+    function normalizeAsk(str){
+      return String(str || '').trim().toLowerCase().replace(/ё/g, 'е');
+    }
+
+    function addMessage(text, who){
+      const el = document.createElement('div');
+      el.className = 'ask-msg ' + who;
+      el.textContent = text;
+      askMessages.appendChild(el);
+      askMessages.scrollTop = askMessages.scrollHeight;
+    }
+
+    function pickReply(text){
+      const norm = normalizeAsk(text);
+      const match = RESPONSES.find(r => r.keywords.some(k => norm.includes(k)));
+      if(match) return match.reply;
+      return DEFAULTS[Math.floor(Math.random() * DEFAULTS.length)];
+    }
+
+    askForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const value = askInput.value.trim();
+      if(!value) return;
+      addMessage(value, 'user');
+      askInput.value = '';
+      askTyping.classList.add('show');
+      const delay = 550 + Math.random() * 500;
+      setTimeout(() => {
+        askTyping.classList.remove('show');
+        addMessage(pickReply(value), 'bot');
+      }, delay);
+    });
+  })();
+
+  // ---------- scratch card ----------
+  (function(){
+    const card = document.getElementById('scratchCard');
+    if(!card) return;
+    const canvas = document.getElementById('scratchCanvas');
+    const ctx = canvas.getContext('2d');
+    let revealed = false;
+
+    function drawCover(){
+      const w = canvas.width, h = canvas.height;
+      ctx.globalCompositeOperation = 'source-over';
+      const grad = ctx.createLinearGradient(0, 0, w, h);
+      grad.addColorStop(0, '#8a6a3f');
+      grad.addColorStop(.5, '#5c1622');
+      grad.addColorStop(1, '#2b1015');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = 'rgba(244,233,220,.55)';
+      ctx.font = '600 13px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('потри здесь пальцем', w / 2, h / 2);
+    }
+
+    function resize(){
+      const rect = card.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      if(!revealed) drawCover();
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    function getPos(e){
+      const rect = canvas.getBoundingClientRect();
+      const point = e.touches ? e.touches[0] : e;
+      return { x: point.clientX - rect.left, y: point.clientY - rect.top };
+    }
+
+    function scratchAt(x, y){
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.arc(x, y, 26, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function checkRevealed(){
+      if(revealed) return;
+      const w = canvas.width, h = canvas.height;
+      if(!w || !h) return;
+      let cleared = 0, total = 0;
+      const step = 12;
+      const data = ctx.getImageData(0, 0, w, h).data;
+      for(let y = 0; y < h; y += step){
+        for(let x = 0; x < w; x += step){
+          total++;
+          if(data[(y * w + x) * 4 + 3] < 60) cleared++;
+        }
+      }
+      if(total > 0 && cleared / total > 0.45){
+        revealed = true;
+        card.classList.add('done');
+        releaseHearts(card.getBoundingClientRect(), 10);
+      }
+    }
+
+    let drawing = false;
+    function start(e){ drawing = true; const p = getPos(e); scratchAt(p.x, p.y); e.preventDefault(); }
+    function move(e){ if(!drawing) return; const p = getPos(e); scratchAt(p.x, p.y); e.preventDefault(); }
+    function end(){ if(!drawing) return; drawing = false; checkRevealed(); }
+
+    canvas.addEventListener('mousedown', start);
+    canvas.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', end);
+    canvas.addEventListener('touchstart', start, { passive: false });
+    canvas.addEventListener('touchmove', move, { passive: false });
+    canvas.addEventListener('touchend', end);
+  })();
+
+  // ---------- broken heart puzzle ----------
+  (function(){
+    const svg = document.getElementById('puzzleSvg');
+    if(!svg) return;
+    const group = document.getElementById('puzzlePieces');
+    const wrap = document.getElementById('puzzleWrap');
+    const message = document.getElementById('puzzleMessage');
+    const hint = document.getElementById('puzzleHint');
+
+    const CENTER = 150;
+    const SCALE = 7.6;
+    const PIECES = 6;
+    const POINTS_PER_PIECE = 20;
+    const TOTAL = PIECES * POINTS_PER_PIECE;
+
+    function heartPoint(t){
+      const x = 16 * Math.pow(Math.sin(t), 3);
+      const y = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+      return { x: CENTER + x * SCALE, y: CENTER - y * SCALE };
+    }
+
+    const boundary = [];
+    for(let i = 0; i <= TOTAL; i++){
+      boundary.push(heartPoint((i / TOTAL) * Math.PI * 2));
+    }
+
+    const ns = 'http://www.w3.org/2000/svg';
+    let placedCount = 0;
+
+    for(let i = 0; i < PIECES; i++){
+      const slice = boundary.slice(i * POINTS_PER_PIECE, (i + 1) * POINTS_PER_PIECE + 1);
+      let d = 'M ' + CENTER + ',' + CENTER;
+      slice.forEach(pt => { d += ' L ' + pt.x.toFixed(2) + ',' + pt.y.toFixed(2); });
+      d += ' Z';
+
+      const g = document.createElementNS(ns, 'g');
+      g.setAttribute('class', 'puzzle-piece');
+      const path = document.createElementNS(ns, 'path');
+      path.setAttribute('d', d);
+      path.setAttribute('fill', 'url(#heartGrad)');
+      path.setAttribute('stroke', 'rgba(244,233,220,.28)');
+      path.setAttribute('stroke-width', '1.4');
+      g.appendChild(path);
+      group.appendChild(g);
+
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 75 + Math.random() * 70;
+      const rot = (Math.random() * 70) - 35;
+      g._pos = {
+        x: Math.cos(angle) * dist,
+        y: Math.sin(angle) * dist,
+        rot: rot
+      };
+      g.style.transform = 'translate(' + g._pos.x + 'px,' + g._pos.y + 'px) rotate(' + g._pos.rot + 'deg)';
+
+      makeDraggable(g);
+    }
+
+    function makeDraggable(g){
+      let dragging = false, startX = 0, startY = 0, origX = 0, origY = 0;
+
+      function getScale(){
+        const rect = svg.getBoundingClientRect();
+        return rect.width ? 300 / rect.width : 1;
+      }
+
+      function down(e){
+        if(g.classList.contains('placed')) return;
+        dragging = true;
+        try{ g.setPointerCapture(e.pointerId); } catch(err){}
+        startX = e.clientX; startY = e.clientY;
+        origX = g._pos.x; origY = g._pos.y;
+        g.classList.add('dragging');
+      }
+
+      function move(e){
+        if(!dragging) return;
+        const scale = getScale();
+        const x = origX + (e.clientX - startX) * scale;
+        const y = origY + (e.clientY - startY) * scale;
+        g._pos.x = x; g._pos.y = y;
+        g.style.transform = 'translate(' + x + 'px,' + y + 'px) rotate(' + g._pos.rot + 'deg)';
+      }
+
+      function up(){
+        if(!dragging) return;
+        dragging = false;
+        g.classList.remove('dragging');
+        const dist = Math.hypot(g._pos.x, g._pos.y);
+        if(dist < 18){
+          g._pos = { x: 0, y: 0, rot: 0 };
+          g.style.transform = 'translate(0px,0px) rotate(0deg)';
+          if(!g.classList.contains('placed')){
+            g.classList.add('placed');
+            placedCount++;
+            if(placedCount >= PIECES){
+              if(hint) hint.style.display = 'none';
+              message.classList.add('show');
+              releaseHearts(wrap.getBoundingClientRect(), 16);
+            }
+          }
+        }
+      }
+
+      g.addEventListener('pointerdown', down);
+      g.addEventListener('pointermove', move);
+      g.addEventListener('pointerup', up);
+      g.addEventListener('pointercancel', up);
+    }
+  })();
+
+  // ---------- daisy: love / love-not ----------
+  (function(){
+    const wrap = document.getElementById('daisyWrap');
+    if(!wrap) return;
+    const core = wrap.querySelector('.daisy-core');
+    const label = document.getElementById('daisyLabel');
+    const resetBtn = document.getElementById('daisyReset');
+    const TOTAL = 7; // odd count — always lands back on "любит", whatever order she picks
+    let plucked = 0;
+
+    function createPetals(){
+      wrap.querySelectorAll('.daisy-petal').forEach(p => p.remove());
+      for(let i = 0; i < TOTAL; i++){
+        const angle = (360 / TOTAL) * i;
+        const petal = document.createElement('button');
+        petal.type = 'button';
+        petal.className = 'daisy-petal';
+        petal.setAttribute('aria-label', 'лепесток');
+        petal.style.transform = 'rotate(' + angle + 'deg)';
+        petal.dataset.angle = angle;
+        petal.addEventListener('click', () => pluck(petal));
+        wrap.insertBefore(petal, core);
+      }
+      plucked = 0;
+      wrap.classList.remove('done');
+      label.textContent = 'любит';
+    }
+
+    function pluck(petal){
+      if(petal.classList.contains('plucked')) return;
+      plucked++;
+      const angle = parseFloat(petal.dataset.angle);
+      petal.style.transform = 'rotate(' + angle + 'deg) translateY(-60px) scale(.3)';
+      petal.classList.add('plucked');
+      label.textContent = (plucked % 2 === 1) ? 'любит' : 'не любит';
+      if(plucked === TOTAL){
+        wrap.classList.add('done');
+        label.textContent = 'любит';
+        releaseHearts(wrap.getBoundingClientRect(), 12);
+      }
+    }
+
+    resetBtn.addEventListener('click', createPetals);
+    createPetals();
+  })();
+
+  // ---------- heart catcher mini-game ----------
+  (function(){
+    const wrap = document.getElementById('catchWrap');
+    if(!wrap) return;
+    const canvas = document.getElementById('catchCanvas');
+    const ctx = canvas.getContext('2d');
+    const scoreEl = document.getElementById('catchScore');
+    const timeEl = document.getElementById('catchTime');
+    const startBtn = document.getElementById('catchStart');
+    const resultEl = document.getElementById('catchResult');
+
+    let w = 0, h = 0, running = false, rafId = null;
+    let basketX = 0;
+    const basketW = 46;
+    let items = [];
+    let score = 0, timeLeft = 20, lastSpawn = 0, lastTick = 0;
+    const GOAL = 12;
+
+    function resize(){
+      const rect = canvas.getBoundingClientRect();
+      w = canvas.width = rect.width;
+      h = canvas.height = rect.height;
+      basketX = w / 2;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    function pointerX(e){
+      const rect = canvas.getBoundingClientRect();
+      const point = e.touches ? e.touches[0] : e;
+      return point.clientX - rect.left;
+    }
+    canvas.addEventListener('mousemove', (e) => { if(running) basketX = pointerX(e); });
+    canvas.addEventListener('touchmove', (e) => { if(running){ basketX = pointerX(e); e.preventDefault(); } }, { passive: false });
+
+    function spawnItem(){
+      const bad = Math.random() < 0.22;
+      items.push({
+        x: 20 + Math.random() * (w - 40),
+        y: -20,
+        vy: 60 + Math.random() * 70,
+        bad: bad,
+        symbol: bad ? '✕' : (Math.random() > 0.5 ? '♥' : '♡'),
+        size: bad ? 16 : (18 + Math.random() * 8)
+      });
+    }
+
+    function draw(){
+      ctx.clearRect(0, 0, w, h);
+      ctx.fillStyle = 'rgba(200,29,56,.85)';
+      ctx.beginPath();
+      if(ctx.roundRect) ctx.roundRect(basketX - basketW / 2, h - 40, basketW, 26, 10);
+      else ctx.rect(basketX - basketW / 2, h - 40, basketW, 26);
+      ctx.fill();
+
+      items.forEach(it => {
+        ctx.font = it.size + 'px serif';
+        ctx.textAlign = 'center';
+        ctx.fillStyle = it.bad ? 'rgba(244,233,220,.5)' : 'rgba(226,83,107,.95)';
+        ctx.fillText(it.symbol, it.x, it.y);
+      });
+    }
+
+    function tick(ts){
+      if(!running) return;
+      if(!lastTick) lastTick = ts;
+      const dt = (ts - lastTick) / 1000;
+      lastTick = ts;
+
+      if(ts - lastSpawn > 550){ spawnItem(); lastSpawn = ts; }
+      items.forEach(it => { it.y += it.vy * dt; });
+
+      items = items.filter(it => {
+        const caught = it.y > h - 46 && it.y < h - 16 && Math.abs(it.x - basketX) < basketW / 2 + 10;
+        if(caught){
+          if(it.bad) timeLeft = Math.max(0, timeLeft - 1.5); else score++;
+          return false;
+        }
+        return it.y < h + 20;
+      });
+
+      draw();
+      scoreEl.textContent = 'Счёт: ' + score;
+      timeEl.textContent = Math.ceil(timeLeft) + 'с';
+
+      timeLeft -= dt;
+      if(timeLeft <= 0){ endGame(); return; }
+      rafId = requestAnimationFrame(tick);
+    }
+
+    function endGame(){
+      running = false;
+      if(rafId) cancelAnimationFrame(rafId);
+      items = [];
+      draw();
+      startBtn.style.display = '';
+      startBtn.textContent = 'Ещё раз';
+      if(score >= GOAL){
+        const bonus = typeof pickFact === 'function' ? pickFact() : 'Ты справилась!';
+        resultEl.textContent = 'Поймано: ' + score + '. ' + bonus;
+        releaseHearts(wrap.getBoundingClientRect(), 10);
+      } else {
+        resultEl.textContent = 'Поймано: ' + score + ' из ' + GOAL + ' — попробуй ещё раз.';
+      }
+    }
+
+    startBtn.addEventListener('click', () => {
+      score = 0; timeLeft = 20; items = []; lastSpawn = 0; lastTick = 0;
+      resultEl.textContent = '';
+      running = true;
+      startBtn.style.display = 'none';
+      rafId = requestAnimationFrame(tick);
+    });
+  })();
+
+  // ---------- rules checklist, signed with a tap ----------
+  (function(){
+    const list = document.getElementById('rulesList');
+    if(!list) return;
+
+    const RULES = [
+      'Всегда мириться до полуночи.',
+      'Не молчать больше суток.',
+      'Говорить прямо, а не ждать, что другой догадается.',
+      'Обнимать друг друга каждый день, даже если день был так себе.',
+      'Выбирать нас — особенно когда легче было бы не выбирать.',
+      'Смеяться вместе чаще, чем ссориться.'
+    ];
+
+    let signed = [];
+    try{ signed = JSON.parse(localStorage.getItem('mainuraRules') || '[]'); } catch(e){}
+
+    const status = document.createElement('p');
+    status.className = 'rules-status';
+
+    function updateStatus(){
+      status.textContent = signed.length === RULES.length
+        ? 'Подписано полностью. Договорились.'
+        : 'Подписано ' + signed.length + ' из ' + RULES.length + '.';
+    }
+
+    RULES.forEach((text, i) => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'rule-item' + (signed.includes(i) ? ' signed' : '');
+      item.innerHTML = '<span class="rule-check">✓</span><span class="rule-text">' + text + '</span>';
+      item.addEventListener('click', () => {
+        item.classList.toggle('signed');
+        const idx = signed.indexOf(i);
+        if(item.classList.contains('signed') && idx === -1) signed.push(i);
+        if(!item.classList.contains('signed') && idx !== -1) signed.splice(idx, 1);
+        try{ localStorage.setItem('mainuraRules', JSON.stringify(signed)); } catch(e){}
+        updateStatus();
+      });
+      list.appendChild(item);
+    });
+
+    list.parentNode.insertBefore(status, list.nextSibling);
+    updateStatus();
+  })();
+</script>
+
+</body>
+</html>
